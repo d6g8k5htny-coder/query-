@@ -1,41 +1,16 @@
-# query-
+# Query — exact-source research lookup
 
-Public **query / ask surface** shell. Empty by design until query interfaces or inventable honesty about ask paths land here.
+`research_query.py` is a standard-library, read-only CLI. It queries the curated catalog in `meta-framework`, reports the exact commit/path/hash and scope, and optionally verifies local payload bytes. It does not access the network, execute retrieved code, edit repositories, determine scientific acceptance or claim the catalog is current.
 
-| Repo | Role |
-|------|------|
-| [`d6g8k5htny-coder/main`](https://github.com/d6g8k5htny-coder/main) | Research program. Authority and status live there. |
-| **this repo** | Query/ask container. No scientific authority. |
-| [`d6g8k5htny-coder/trial`](https://github.com/d6g8k5htny-coder/trial) | Owner sandbox / agent landing pad. |
+With sibling checkouts:
 
-## Purpose
+```sh
+python -B -S research_query.py --registry ../meta-framework/registry.json --key side24-coefficient
+python -B -S research_query.py --registry ../meta-framework/registry.json --verify --workspace ..
+```
 
-- Host query-facing docs, prompts, or thin tooling that ask the stack without rewriting registers.
-- Record inventable honesty when a query path is REFUSED / EMPTY / ABSENT.
+Omit `--key` and `--verify` to list repository roles and available keys. An unknown key is refused rather than guessed. Verification requires the exact listed payloads; a later legitimate edit also fails the old hash and needs a new reviewed catalog entry.
 
-## What belongs here
+The tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 
-- Ask-surface docs and inventable gap notes.
-- Pointers into `main` for any live status.
-
-## What does not belong here
-
-- Quietly closing lemmas or discharging OBL via a "successful query."
-- Mirroring vault SoT material as authoritative.
-
-## Non-claims
-
-- `lemma_closed`, `prizes_solved`, `discharges_OBL_H5_JETMOD`, and `certified_C_H` stay **unchanged / false** unless `main` records otherwise under its own predicates.
-- Eng ≠ discharge. OBL stays **OPEN**.
-- **NEVER-MAIN**: research tip work stays on the hardening branch of `main`.
-
-## Related shells
-
-| Shell | Note |
-|-------|------|
-| `google-drive` | Drive replica (not SoT) |
-| `meta-framework` | Meta / framework scaffolding |
-| `governance-` | Governance / protocol surface |
-| `Math-` | Math structure/purpose only |
-| `trial` | Strong README — do not dilute |
-| `sandbox` | Private — MCP-only |
+Twenty engineering controls are maintained in `trial/federation/test_federation.py`, separate from the mathematical tests in `Math-`. Main campaign61 and the actual source-linked reviews remain the place for current scientific discussion. This executable tool supersedes the earlier empty-by-design shell; it does not create another claim-status database.
