@@ -1,0 +1,25 @@
+{
+  "scientific_status_authority": false,
+  "scientific_effect": "NONE",
+  "lemma_closed": false,
+  "query_tip_role": "portable candidate identities + lookup; not catalog authority",
+  "app_write": "query-only",
+  "cannot": [
+    "push meta-framework / Math- / trial / main / google-drive",
+    "comment on meta-framework PRs (Issues:write 403)",
+    "flip lemma_closed or research status"
+  ],
+  "ready_for_meta_peers": [
+    "portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json",
+    "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
+    "portable/RN_FIXED_REMOTE_REPLAY_STUB.json"
+  ],
+  "meta_readme_drift": "main README still says 18 public artifacts; registry has 22 including rn-fixed-remote-window*",
+  "avoid_racing": [
+    "meta-framework#6 cursor/catalog-drive-parents-5cb8",
+    "google-drive#3 selective Drive replicas",
+    "Math- drafts #7 #9 mesoscopic"
+  ],
+  "batch336_note": "trial Path C IDLE; research main drafts skipped; this agent owns query- catalog stub currency + tip-drift gate",
+  "meaning": "coordination receipt only; not a task queue or acceptance register"
+}

@@ -1,10 +1,10 @@
 """Controls for verify_portable_stubs.py (offline-safe unit checks)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -52,13 +52,57 @@ class VerifyPortableStubs(unittest.TestCase):
             'commit': '1' * 40,
             'path': 'frontiers/x.py',
             'bytes': 4,
-            'sha256': __import__('hashlib').sha256(b'data').hexdigest(),
+            'sha256': hashlib.sha256(b'data').hexdigest(),
         }
         v.validate_row(row)
         with mock.patch.object(v, 'fetch', return_value=b'data'):
-            # exercise main path via temporary candidate list
             with mock.patch.object(v, 'load_candidates', return_value=[row]):
-                self.assertEqual(v.main(), 0)
+                self.assertEqual(v.main([]), 0)
+
+    def _gate_row(self, payload: bytes = b'data'):
+        return {
+            'key': 'downstream-hard-gate-code',
+            'repository': 'Math-',
+            'visibility': 'public',
+            'commit': '1' * 40,
+            'path': 'frontiers/downstream_gate_20260925/hard_gate.py',
+            'bytes': len(payload),
+            'sha256': hashlib.sha256(payload).hexdigest(),
+        }
+
+    def test_math_tip_check_no_drift_when_tip_matches(self):
+        payload = b'data'
+        fake = {
+            'scientific_status_authority': False,
+            'math_tip': 'tipsha',
+            'artifacts': [self._gate_row(payload)],
+        }
+        with mock.patch.object(v, 'fetch_raw', return_value=payload):
+            with mock.patch.object(Path, 'is_file', return_value=True):
+                with mock.patch.object(Path, 'read_text', return_value=json.dumps(fake)):
+                    out = v.check_math_tip_drift()
+        self.assertEqual(out['drifted'], [])
+        self.assertEqual(out['checked'], ['downstream-hard-gate-code'])
+
+    def test_math_tip_check_detects_drift(self):
+        fake = {
+            'scientific_status_authority': False,
+            'math_tip': 'tipsha',
+            'artifacts': [self._gate_row(b'data')],
+        }
+        with mock.patch.object(v, 'fetch_raw', return_value=b'DIFF'):
+            with mock.patch.object(Path, 'is_file', return_value=True):
+                with mock.patch.object(Path, 'read_text', return_value=json.dumps(fake)):
+                    out = v.check_math_tip_drift()
+        self.assertEqual(len(out['drifted']), 1)
+        self.assertEqual(out['drifted'][0]['key'], 'downstream-hard-gate-code')
+
+    def test_peer_handoff_schema(self):
+        handoff = json.loads((ROOT / 'portable/PEER_HANDOFF.json').read_text())
+        self.assertFalse(handoff['scientific_status_authority'])
+        self.assertFalse(handoff['lemma_closed'])
+        self.assertEqual(handoff['scientific_effect'], 'NONE')
+        self.assertIn('portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json', handoff['ready_for_meta_peers'])
 
 
 if __name__ == '__main__':

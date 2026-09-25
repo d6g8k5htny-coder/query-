@@ -3,9 +3,13 @@
 Uses only declared commits/paths from portable/*.json. Network read of public
 raw.githubusercontent.com content; no private sandbox fetch, no catalog edit,
 no scientific acceptance. Skip offline with QUERY_STUB_VERIFY=0.
+
+Pass --check-math-tip to also compare downstream-gate stubs to Math- default
+tip bytes (detect tip drift that still verifies against older pinned commits).
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -31,7 +35,6 @@ def load_candidates() -> list[dict]:
         if data.get('scientific_status_authority') is not False:
             raise SystemExit('REFUSED: candidate bundle must deny scientific authority: ' + bundle_path.name)
         rows.extend(data['artifacts'])
-    # de-dupe by key, prefer first
     seen = set()
     out = []
     for row in rows:
@@ -59,16 +62,55 @@ def validate_row(row: dict) -> None:
         raise SystemExit('REFUSED: invalid bytes for ' + row.get('key', '?'))
 
 
-def fetch(row: dict) -> bytes:
-    url = (
-        f"https://raw.githubusercontent.com/d6g8k5htny-coder/"
-        f"{row['repository']}/{row['commit']}/{row['path']}"
-    )
+def fetch_raw(repository: str, ref: str, path: str, max_bytes: int) -> bytes:
+    url = f'https://raw.githubusercontent.com/d6g8k5htny-coder/{repository}/{ref}/{path}'
     with urllib.request.urlopen(url, timeout=30) as response:
-        return response.read(row['bytes'] + 1)
+        return response.read(max_bytes + 1)
 
 
-def main() -> int:
+def fetch(row: dict) -> bytes:
+    return fetch_raw(row['repository'], row['commit'], row['path'], row['bytes'])
+
+
+def check_math_tip_drift() -> dict:
+    bundle_path = ROOT / 'portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json'
+    if not bundle_path.is_file():
+        return {'checked': [], 'drifted': [], 'math_tip_recorded': None}
+    data = json.loads(bundle_path.read_text())
+    drifted = []
+    checked = []
+    for row in data['artifacts']:
+        validate_row(row)
+        try:
+            tip_raw = fetch_raw(row['repository'], 'main', row['path'], 10000000)
+        except urllib.error.URLError as error:
+            raise SystemExit('REFUSED: tip fetch failed for ' + row['key'] + ': ' + str(error)) from error
+        tip_digest = hashlib.sha256(tip_raw).hexdigest()
+        checked.append(row['key'])
+        if len(tip_raw) != row['bytes'] or tip_digest != row['sha256']:
+            drifted.append({
+                'key': row['key'],
+                'stub_bytes': row['bytes'],
+                'tip_bytes': len(tip_raw),
+                'stub_sha256': row['sha256'],
+                'tip_sha256': tip_digest,
+            })
+    return {
+        'checked': checked,
+        'drifted': drifted,
+        'math_tip_recorded': data.get('math_tip'),
+        'meaning': 'tip drift vs portable stubs only; not catalog land or theorem acceptance',
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--check-math-tip',
+        action='store_true',
+        help='fail if downstream-gate stubs no longer match Math- default tip bytes',
+    )
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     if os.environ.get('QUERY_STUB_VERIFY', '1') == '0':
         print('SKIPPED_STUB_VERIFY')
         return 0
@@ -84,10 +126,18 @@ def main() -> int:
             print('REFUSED: identity mismatch for ' + row['key'], file=sys.stderr)
             return 2
         checked.append(row['key'])
-    print(json.dumps({
+    report = {
         'verified': checked,
         'meaning': 'exact public bytes at declared commits only; not catalog land or theorem acceptance',
-    }, indent=2, sort_keys=True))
+    }
+    if args.check_math_tip:
+        tip = check_math_tip_drift()
+        report['math_tip_check'] = tip
+        if tip['drifted']:
+            print(json.dumps(report, indent=2, sort_keys=True))
+            print('REFUSED: TIP_DRIFT ' + ','.join(x['key'] for x in tip['drifted']), file=sys.stderr)
+            return 2
+    print(json.dumps(report, indent=2, sort_keys=True))
     return 0
 
 
