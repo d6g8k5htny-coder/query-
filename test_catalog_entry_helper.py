@@ -148,12 +148,15 @@ class CatalogEntryHelper(unittest.TestCase):
         self.assertFalse(bundle['scientific_status_authority'])
         keys = {row['key'] for row in bundle['artifacts']}
         self.assertIn('downstream-hard-gate', keys)
+        self.assertIn('downstream-hard-gate-scope', keys)
         self.assertIn('downstream-hard-gate-replay', keys)
         for row in bundle['artifacts']:
             self.assertEqual(row['visibility'], 'public')
             self.assertRegex(row['commit'], r'^[0-9a-f]{40}$')
             self.assertRegex(row['sha256'], r'^[0-9a-f]{64}$')
             self.assertTrue(row['path'].startswith('frontiers/downstream_gate_20260925/'))
+        readme = next(r for r in bundle['artifacts'] if r['key'] == 'downstream-hard-gate')
+        self.assertEqual(readme['path'], 'frontiers/downstream_gate_20260925/README.md')
 
 
 if __name__ == '__main__':
