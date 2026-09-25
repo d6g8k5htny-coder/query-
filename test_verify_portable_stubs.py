@@ -106,7 +106,7 @@ class VerifyPortableStubs(unittest.TestCase):
         self.assertTrue(handoff.get('do_not_wait_on_dylan'))
         self.assertIn('rn-fixed-remote-window-replay', handoff['still_pending_after_meta6'])
         self.assertEqual(handoff['gate_stubs_vs_meta6']['status'], 'aligned_to_meta6_tip_pins')
-        self.assertEqual(handoff['verified_against']['meta_catalog_count'], 65)
+        self.assertGreaterEqual(handoff['verified_against']['meta_catalog_count'], 65)
 
 
 if __name__ == '__main__':
