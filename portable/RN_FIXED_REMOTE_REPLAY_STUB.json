@@ -1,0 +1,11 @@
+{
+  "bytes": 4052,
+  "commit": "191ea7d541a486736ba7bbddfd4eac25a6c4567b",
+  "key": "rn-fixed-remote-window-replay",
+  "path": "frontiers/remote_window_20260924/run_validation.py",
+  "repository": "Math-",
+  "scope": "Same-author finite algebra/implementation checks; not numerical Gaussian integration or independent proof review",
+  "sha256": "d97037ed8117f01aef0ca74b8c0155a8c2228069f57439c0690b94bde5423972",
+  "visibility": "public",
+  "note": "Candidate only. Produced by query-/catalog_entry_helper.py for a writable meta-framework peer. Not catalog-integrated; not theorem acceptance. Also fix meta README 18→22 and add rn-fixed-remote-window topic row."
+}
