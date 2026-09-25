@@ -24,12 +24,12 @@
   "verified_against": {
     "meta_pr": 6,
     "meta_branch": "cursor/catalog-drive-parents-5cb8",
-    "meta_head": "f8907822e5013f3e74239845a5fbb800a026d954",
+    "meta_head": "e2259d436581bc4e030891a31dd5ae90020d5868",
     "meta_pr_state": "OPEN",
-    "meta_catalog_count": 65,
+    "meta_catalog_count": 71,
     "math_tip": "baca69c394ab42130c61771bee74e808703f1ce7",
     "tip_drift": [],
-    "checked_at_utc": "2026-09-25T18:14:30Z"
+    "checked_at_utc": "2026-09-25T18:30:48Z"
   },
   "gate_stubs_vs_meta6": {
     "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
@@ -43,7 +43,7 @@
       "downstream-hard-gate-replay",
       "downstream-hard-gate-graph"
     ],
-    "note": "primary key downstream-hard-gate → README.md @ baca69c (still matches meta#6 at f890782)"
+    "note": "primary key downstream-hard-gate \u2192 README.md @ baca69c (still matches meta#6 at f890782)"
   },
   "still_pending_after_meta6": [
     "rn-fixed-remote-window-replay",
@@ -58,13 +58,22 @@
     "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
   "avoid_racing": [
-    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog now 65 on PR head; lane=catalog/routing)",
+    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 71 on PR head; lane=catalog/routing)",
     "google-drive#3 selective Drive replicas",
     "Math- drafts #7 #9 #14 #15 mesoscopic/D5/transition",
     "main research/inventable drafts; vault #91"
   ],
-  "batch337_note": "trial Path C IDLE tip eeebb28; wake peers on tip-sync/grant; skip research main drafts; query- owns stub currency vs meta#6 + tip-drift only",
+  "batch337_note": "superseded by batch340: Path C IDLE tip 848aea2; query- still stub currency vs meta#6 + tip-drift only",
   "next_query_action": "Idle-watch meta#6 merge + Math tip; on merge offer only the three replay stubs; on TIP_DRIFT refresh gate stubs",
   "accidental_issue": "query-#7 title 'test' was an Issues API probe; ignore as non-task",
-  "meaning": "coordination receipt only; not a task queue or acceptance register"
+  "meaning": "coordination receipt only; not a task queue or acceptance register",
+  "collective_decision_20260925T1830Z": {
+    "sources": [
+      "meta-framework#6 head e2259d4 (catalog 71; multi-agent-dispatch-20260925-v4)",
+      "trial MULTI_AGENT_WAKE_BATCH340.json Path C IDLE @ 848aea2",
+      "verify_portable_stubs --check-math-tip drifted=[]"
+    ],
+    "decision": "Refresh PEER_HANDOFF to meta#6 tip e2259d4; gate pins still baca69c; three replay stubs still post-merge-only; idle otherwise"
+  },
+  "batch340_note": "trial Path C IDLE tip 848aea2; wake/assign pulse; skip research drafts; query- idle-watch meta#6"
 }
