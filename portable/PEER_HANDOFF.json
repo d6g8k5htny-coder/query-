@@ -3,6 +3,7 @@
   "scientific_effect": "NONE",
   "lemma_closed": false,
   "standing_operating_mode": "coordinate_with_peer_models_before_each_action",
+  "do_not_wait_on_dylan": true,
   "query_tip_role": "portable candidate identities + lookup; not catalog authority",
   "app_write": "query-only",
   "cannot": [
@@ -10,23 +11,25 @@
     "comment on meta-framework PRs or close Issues (Issues:write 403)",
     "flip lemma_closed or research status"
   ],
-  "collective_decision_20260925T1806Z": {
+  "collective_decision_20260925T1814Z": {
     "sources": [
-      "meta-framework#6 body (multi-agent-dispatch standing mode)",
-      "trial MULTI_AGENT_WAKE_BATCH336.json",
-      "local coordination agents: generalPurpose + explore vs meta#6 head 64f2eec"
+      "meta-framework#6 head f890782 (catalog 65; multi-agent-dispatch-20260925-v3)",
+      "trial MULTI_AGENT_WAKE_BATCH337.json Path C IDLE @ eeebb28",
+      "local coordination agent bc-1a014554-7021-598c-a35b-5dc7c02aec90",
+      "verify_portable_stubs.py --check-math-tip drifted=[]"
     ],
-    "decision": "Verify/align query- portable gate stubs to open meta#6 tip pins; do not invent new catalog keys; after #6 merges, only surface the three absent replay stubs",
-    "closure_order_elsewhere": "PR98/CI → #90; PR9 axial amend → PR14; then D1→D2/D3→D4→D5→D6→#95→D7 (not query- lane)"
+    "decision": "Refresh PEER_HANDOFF verified_against to meta#6 tip f890782; gate pins still baca69c (no TIP_DRIFT); keep three replay stubs staged but unoffered until #6 merges; do not invent keys",
+    "closure_order_elsewhere": "owned outside query-; Math drafts #7/#9/#14/#15 and google-drive#3 not our lane"
   },
   "verified_against": {
     "meta_pr": 6,
     "meta_branch": "cursor/catalog-drive-parents-5cb8",
-    "meta_head": "64f2eec3ea8d6cef325b0438323fd64878f8815d",
+    "meta_head": "f8907822e5013f3e74239845a5fbb800a026d954",
     "meta_pr_state": "OPEN",
-    "meta_catalog_count": 55,
+    "meta_catalog_count": 65,
     "math_tip": "baca69c394ab42130c61771bee74e808703f1ce7",
-    "checked_at_utc": "2026-09-25T18:07:30Z"
+    "tip_drift": [],
+    "checked_at_utc": "2026-09-25T18:14:30Z"
   },
   "gate_stubs_vs_meta6": {
     "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
@@ -40,7 +43,7 @@
       "downstream-hard-gate-replay",
       "downstream-hard-gate-graph"
     ],
-    "note": "primary key downstream-hard-gate → README.md @ baca69c (matches meta#6); SCOPE.md is downstream-hard-gate-scope"
+    "note": "primary key downstream-hard-gate → README.md @ baca69c (still matches meta#6 at f890782)"
   },
   "still_pending_after_meta6": [
     "rn-fixed-remote-window-replay",
@@ -55,13 +58,13 @@
     "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
   "avoid_racing": [
-    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 22→55; lane=catalog/routing)",
+    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog now 65 on PR head; lane=catalog/routing)",
     "google-drive#3 selective Drive replicas",
-    "Math- drafts #7 #9 #14 mesoscopic/D5",
-    "main PR98 / vault #91 / Math PR9 axial→PR14 (closure order owned elsewhere)"
+    "Math- drafts #7 #9 #14 #15 mesoscopic/D5/transition",
+    "main research/inventable drafts; vault #91"
   ],
-  "batch336_note": "trial Path C IDLE tip eeebb28; wake on tip-sync/grant/CI; skip research main drafts; query- owns stub currency vs meta#6 + tip-drift gate only",
-  "next_query_action": "Land aligned PEER_HANDOFF + gate stub tip pins; wait for meta#6 merge; then only offer the three replay stubs",
-  "accidental_issue": "query-#7 title 'test' was an Issues API probe; close if Issues:write available — ignore as non-task",
+  "batch337_note": "trial Path C IDLE tip eeebb28; wake peers on tip-sync/grant; skip research main drafts; query- owns stub currency vs meta#6 + tip-drift only",
+  "next_query_action": "Idle-watch meta#6 merge + Math tip; on merge offer only the three replay stubs; on TIP_DRIFT refresh gate stubs",
+  "accidental_issue": "query-#7 title 'test' was an Issues API probe; ignore as non-task",
   "meaning": "coordination receipt only; not a task queue or acceptance register"
 }
