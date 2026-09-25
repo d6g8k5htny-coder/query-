@@ -20,7 +20,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           set -euo pipefail
-          python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py
+          python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py test_verify_portable_stubs.py
           python -B -S - <<'PY'
           import hashlib, json, pathlib
           raw = pathlib.Path('research_query.py').read_bytes()
@@ -35,3 +35,7 @@ jobs:
               'meaning': 'byte identity only; not catalog currentness or theorem acceptance',
           }, indent=2, sort_keys=True))
           PY
+      - name: Verify portable candidate stubs against pinned public commits
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -B -S verify_portable_stubs.py

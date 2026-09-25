@@ -30,7 +30,8 @@ Omit `--key` and `--verify` to list repository roles and available keys. An unkn
 Local engineering controls (no sibling checkout required):
 
 ```sh
-python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py
+python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py test_verify_portable_stubs.py
+python -B -S verify_portable_stubs.py
 ```
 
 The twenty cross-repository federation controls remain in `trial/federation/test_federation.py`. Keep `research_query.py` byte-identical to the pinned federation/catalog hashes unless those pins are updated together.
