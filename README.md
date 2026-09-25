@@ -46,7 +46,7 @@ python -B -S catalog_entry_helper.py \
   --scope 'Same-author finite algebra/implementation checks; not numerical Gaussian integration'
 ```
 
-The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance.
+The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance. A ready candidate for the fixed-remote replay runner is checked in as [`portable/RN_FIXED_REMOTE_REPLAY_STUB.json`](portable/RN_FIXED_REMOTE_REPLAY_STUB.json) for a writable `meta-framework` peer.
 
 The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 

@@ -121,6 +121,16 @@ class CatalogEntryHelper(unittest.TestCase):
         self.assertIn('REFUSED:', proc.stderr)
         self.assertNotIn('Traceback', proc.stderr)
 
+    def test_portable_replay_stub_schema(self):
+        stub = json.loads((ROOT / 'portable/RN_FIXED_REMOTE_REPLAY_STUB.json').read_text())
+        required = {'bytes', 'commit', 'key', 'path', 'repository', 'scope', 'sha256', 'visibility'}
+        self.assertTrue(required <= set(stub))
+        self.assertEqual(stub['key'], 'rn-fixed-remote-window-replay')
+        self.assertEqual(stub['visibility'], 'public')
+        self.assertRegex(stub['commit'], r'^[0-9a-f]{40}$')
+        self.assertRegex(stub['sha256'], r'^[0-9a-f]{64}$')
+        self.assertEqual(stub['bytes'], 4052)
+
 
 if __name__ == '__main__':
     unittest.main()
