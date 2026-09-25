@@ -102,7 +102,9 @@ class VerifyPortableStubs(unittest.TestCase):
         self.assertFalse(handoff['scientific_status_authority'])
         self.assertFalse(handoff['lemma_closed'])
         self.assertEqual(handoff['scientific_effect'], 'NONE')
-        self.assertIn('portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json', handoff['ready_for_meta_peers'])
+        self.assertEqual(handoff['standing_operating_mode'], 'coordinate_with_peer_models_before_each_action')
+        self.assertIn('rn-fixed-remote-window-replay', handoff['still_pending_after_meta6'])
+        self.assertEqual(handoff['gate_stubs_vs_meta6']['status'], 'aligned_to_meta6_tip_pins')
 
 
 if __name__ == '__main__':
