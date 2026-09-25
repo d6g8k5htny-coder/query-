@@ -1,7 +1,8 @@
 {
   "scientific_status_authority": false,
   "meaning": "candidate stubs only; not catalog integration or theorem acceptance",
-  "math_tip": "b47af3a52c6ab14426348a06787a5f0c5cb721c7",
+  "math_tip": "baca69c394ab42130c61771bee74e808703f1ce7",
+  "prior_stub_tip": "b47af3a52c6ab14426348a06787a5f0c5cb721c7",
   "artifacts": [
     {
       "bytes": 2218,
@@ -12,62 +13,62 @@
       "scope": "Fail-closed downstream promotion control scope; engineering integrity only, not theorem acceptance",
       "sha256": "c7b5bb0ec34f53395b96ae24edceb3b5b0a3451caf7df6205b924d40e9e9fd84",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     },
     {
-      "bytes": 18004,
-      "commit": "e62a3f1de6e7ec0e5c30811707562cd48d0570c8",
+      "bytes": 22300,
+      "commit": "edef1393cc7dcc281fb111dda40281cb1e8a3df0",
       "key": "downstream-hard-gate-code",
       "path": "frontiers/downstream_gate_20260925/hard_gate.py",
       "repository": "Math-",
-      "scope": "Exact finite dependency-graph promotion checker; not analytic review or status flip",
-      "sha256": "ab96a55966e3624377ada4309d8d68a68e98693e64ef6f91f7a883373be6566e",
+      "scope": "Exact finite dependency-graph promotion checker with fail-closed refutation/edge rules; not analytic review or status flip",
+      "sha256": "fdefdf8ebd27bb7ef3735cf81460ca38724af8417420c7017ef53d3d24602998",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     },
     {
-      "bytes": 13232,
-      "commit": "4da9165d1ce701ffed30b33ebb3d49807bee7dcd",
+      "bytes": 15661,
+      "commit": "73f5c95e63a1e159bbe4030c0e81559ad85710c1",
       "key": "downstream-hard-gate-tests",
       "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
       "repository": "Math-",
-      "scope": "27 finite controls for hard-gate behavior; not independent mathematical review",
-      "sha256": "7bab1389873b77e49fad60c707508b95fe21bda8ee8761e69cd9fe9f3814797c",
+      "scope": "Finite controls for hard-gate behavior including required-refutation and reverse-impact cases; not independent mathematical review",
+      "sha256": "6eb3b1b4859eb7a01063e3f70e03a42365f515d103abb87e0711fc6e6102ce86",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     },
     {
-      "bytes": 5795,
-      "commit": "05ec7d16888179b1979ae5f5071ed1e444093a76",
+      "bytes": 5867,
+      "commit": "aaca53fdbfadd45c3de7fc9ed0f99a99d75b60b9",
       "key": "downstream-hard-gate-output",
       "path": "frontiers/downstream_gate_20260925/RESULTS.json",
       "repository": "Math-",
-      "scope": "Reproducible hard-gate ledger output; not scientific acceptance",
-      "sha256": "f77627419254266de7c6e362b920a419f45abb43116a0afb8510640ae0c7a2cc",
+      "scope": "Reproducible hard-gate ledger output at current tip; not scientific acceptance",
+      "sha256": "4e62e8d73101388f6872306feebb4ce35a4d04985f5200136bd2fcf0bb28aac7",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     },
     {
-      "bytes": 5639,
-      "commit": "199ed0351c5010d63925fdd657d2b7684f0a57af",
+      "bytes": 5947,
+      "commit": "50047c0c1e1e37565b8036d15bb2d76550db0092",
       "key": "downstream-hard-gate-replay",
       "path": "frontiers/downstream_gate_20260925/run_validation.py",
       "repository": "Math-",
       "scope": "Same-author finite controls and semantic mutations; not theorem acceptance",
-      "sha256": "8b7dd56e5d497e4efafc428146e85a550ce02a3c85a6da645d0e0b6d34c93ea7",
+      "sha256": "72874e70feb613dd42684be5c598b5d145fc9fdbdbd42abf8eb172b9df7487c3",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     },
     {
-      "bytes": 12191,
-      "commit": "5887a2f8aaf121760362e6e90f9974f1e0078bc5",
+      "bytes": 12289,
+      "commit": "079d711d89562f25b806478a800d5a4d72d55d28",
       "key": "downstream-hard-gate-graph",
       "path": "frontiers/downstream_gate_20260925/GRAPH.json",
       "repository": "Math-",
       "scope": "Machine-readable D0-D7 dependency graph identities; not claim-status authority",
-      "sha256": "34100e8541f7b1893bbc7207d2183762b60070c443da28f670953437515ef496",
+      "sha256": "556b961f92aa171655ab5cfe9fa7a89cdd16a10d29f5e39cd1ff7b6ccade73b7",
       "visibility": "public",
-      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+      "note": "Candidate only for writable meta-framework peer. Refreshed after Math- tip baca69c gate hotfix. Not integrated; not acceptance. Avoid racing meta PR #6."
     }
   ]
 }

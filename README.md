@@ -50,7 +50,7 @@ python -B -S catalog_entry_helper.py \
 The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance. Ready candidates for writable `meta-framework` peers:
 
 - [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) — uncataloged Math replay runners
-- [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none)
+- [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none; refresh when Math- tip changes gate bytes)
 
 Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes).
 
