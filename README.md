@@ -32,6 +32,7 @@ Local engineering controls (no sibling checkout required):
 ```sh
 python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py test_verify_portable_stubs.py
 python -B -S verify_portable_stubs.py
+python -B -S verify_portable_stubs.py --check-math-tip
 ```
 
 The twenty cross-repository federation controls remain in `trial/federation/test_federation.py`. Keep `research_query.py` byte-identical to the pinned federation/catalog hashes unless those pins are updated together.
@@ -52,7 +53,7 @@ The helper refuses sandbox paths, symlinks, mutable refs and non-public reposito
 - [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) — uncataloged Math replay runners
 - [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none; refresh when Math- tip changes gate bytes)
 
-Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes).
+Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes). Live peer coordination status for writable agents is in [`portable/PEER_HANDOFF.json`](portable/PEER_HANDOFF.json).
 
 The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 

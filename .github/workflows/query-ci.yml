@@ -38,4 +38,7 @@ jobs:
       - name: Verify portable candidate stubs against pinned public commits
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python -B -S verify_portable_stubs.py
+        run: |
+          set -euo pipefail
+          python -B -S verify_portable_stubs.py
+          python -B -S verify_portable_stubs.py --check-math-tip
