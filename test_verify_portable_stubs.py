@@ -19,6 +19,7 @@ class VerifyPortableStubs(unittest.TestCase):
         keys = {row['key'] for row in v.load_candidates()}
         self.assertIn('rn-fixed-remote-window-replay', keys)
         self.assertIn('p15-price-budget-replay', keys)
+        self.assertIn('downstream-hard-gate', keys)
 
     def test_validate_row_rejects_mutable_commit(self):
         row = {

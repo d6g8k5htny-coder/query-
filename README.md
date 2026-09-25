@@ -47,7 +47,12 @@ python -B -S catalog_entry_helper.py \
   --scope 'Same-author finite algebra/implementation checks; not numerical Gaussian integration'
 ```
 
-The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance. Ready candidates for uncataloged public replay runners are in [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) (and the single-file RN replay stub) for a writable `meta-framework` peer.
+The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance. Ready candidates for writable `meta-framework` peers:
+
+- [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) — uncataloged Math replay runners
+- [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none)
+
+Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes).
 
 The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 

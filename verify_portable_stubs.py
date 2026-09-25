@@ -26,11 +26,10 @@ def load_candidates() -> list[dict]:
     single = ROOT / 'portable/RN_FIXED_REMOTE_REPLAY_STUB.json'
     if single.is_file():
         rows.append(json.loads(single.read_text()))
-    bundle = ROOT / 'portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json'
-    if bundle.is_file():
-        data = json.loads(bundle.read_text())
+    for bundle_path in sorted((ROOT / 'portable').glob('CANDIDATE_*.json')):
+        data = json.loads(bundle_path.read_text())
         if data.get('scientific_status_authority') is not False:
-            raise SystemExit('REFUSED: candidate bundle must deny scientific authority')
+            raise SystemExit('REFUSED: candidate bundle must deny scientific authority: ' + bundle_path.name)
         rows.extend(data['artifacts'])
     # de-dupe by key, prefer first
     seen = set()
