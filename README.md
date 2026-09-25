@@ -30,11 +30,24 @@ Omit `--key` and `--verify` to list repository roles and available keys. An unkn
 Local engineering controls (no sibling checkout required):
 
 ```sh
-python -B -S -m unittest -v test_research_query.py
+python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py
 ```
 
-The twenty cross-repository federation controls remain in `trial/federation/test_federation.py`.
+The twenty cross-repository federation controls remain in `trial/federation/test_federation.py`. Keep `research_query.py` byte-identical to the pinned federation/catalog hashes unless those pins are updated together.
 
-The tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
+To prepare a candidate public catalog stub from local bytes (does not edit `meta-framework`):
+
+```sh
+python -B -S catalog_entry_helper.py \
+  --file ../Math-/frontiers/remote_window_20260924/run_validation.py \
+  --repository Math- \
+  --path frontiers/remote_window_20260924/run_validation.py \
+  --key rn-fixed-remote-window-replay \
+  --scope 'Same-author finite algebra/implementation checks; not numerical Gaussian integration'
+```
+
+The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance.
+
+The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 
 Main campaign61 and the actual source-linked reviews remain the place for current scientific discussion. This executable tool supersedes the earlier empty-by-design shell; it does not create another claim-status database.

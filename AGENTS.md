@@ -9,12 +9,15 @@ Read-only lookup and local byte verification against the meta-framework catalog.
 - Scientific effect: **NONE**. Never flip `lemma_closed` / prizes / premises.
 - Cross-repo eng tests and Path C live in [`d6g8k5htny-coder/trial`](https://github.com/d6g8k5htny-coder/trial).
 - CLI is stdlib-only (`research_query.py`); federation controls live under trial `federation/`.
+- Keep `research_query.py` byte-identical to the pinned trial/meta federation hashes unless those pins are updated in the same change set.
+- Use `catalog_entry_helper.py` for candidate public identities; do not treat stubs as catalog landings or acceptance.
 
 ## Never
 
 - Duplicate scientific-status registers here.
 - Publish private `sandbox` material.
 - Ask Dylan for re-approval of autonomy already granted.
+- Change `research_query.py` casually; meta-framework catalog CI and trial `federation/replay.py` pin its exact bytes.
 
 ## Start here
 
