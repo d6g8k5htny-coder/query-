@@ -58,9 +58,10 @@
     "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
   "avoid_racing": [
-    "meta-framework#6 bottleneck-routing lane (catalog growth paused; head c1046a5 / dispatch v8)",
+    "meta-framework#6 bottleneck-routing lane (stop_catalog_only_churn; do not chase tip growth past recorded routing)",
     "google-drive#3 selective Drive replicas",
     "Math- D5 live path: #19 (ee8629f3) → #9 author regen → clean mapping successor; do not consume CLOSED #14",
+    "Math- #20 OPEN draft fingerprint-sync map — blocked-input risk until pin AMEND; do not harden PR14-style maps",
     "Math- #15 hosted-green but needs distinct technical review (not finished gate source)",
     "main #98 source-level fixes; CI mixed/pending — not query- lane",
     "main research/inventable drafts; vault #91"
@@ -83,8 +84,22 @@
       "clean mapping successor"
     ],
     "math_pr15": "OPEN hosted-green head 8c4c946a; needs distinct technical review; not finished gate source",
+    "math_pr20": {
+      "state": "OPEN",
+      "disposition": "BLOCKED_INPUT_RISK",
+      "head_at_record": "5add2ee2cc0c168a4eade2c82eb741db93c23990",
+      "dispatch_v9_oid": "284271898510a385445ef2fbd22af5d4d5c2727e",
+      "note": "Fingerprint-sync map after PR14 close; hold until PR9 pin AMEND cleared or PR19 distinctly reviewed/consumed; do not catalog as finished gate source"
+    },
     "main_pr98": "OPEN head 0bc41ca; source-level fixes; CI verify mixed FAILURE/IN_PROGRESS at record time",
     "scientific_effect": "NONE"
+  },
+  "meta_tip_observed_not_chased": {
+    "meta_pr": 6,
+    "head": "3120bf3400cfbc06bfa100c83f530e2e56a8202f",
+    "catalog_count": 103,
+    "note": "dispatch v9 index only; stop_catalog_only_churn — verified_against stays at prior routing pin c1046a5/96 unless merge or TIP_DRIFT",
+    "checked_at_utc": "2026-09-25T20:02:30Z"
   },
   "stale_consumer_scan_20260925T1949Z": {
     "meaning": "exact paths still naming CLOSED Math-#14 or intermediate/known-bad Math-#9 tip fingerprints; not catalog authority",
@@ -174,5 +189,13 @@
       "peer Task agent bc-bf728fe1"
     ],
     "decision": "Record bottleneck routing + PR14 CLOSED + D5 path PR19→PR9→successor in PEER_HANDOFF; set stop_catalog_only_churn; report stale-consumer paths (query prose-only; meta TIP_* observation keys for peers); do not invent catalog keys; three replays still post-merge-only; no further catalog-tip handoff churn unless merge or TIP_DRIFT"
+  },
+  "collective_decision_20260925T2002Z": {
+    "sources": [
+      "meta-framework#6 synchronize → 3120bf3 dispatch v9 (PR14 closed, PR19 repair, PR20 map risk); catalog 103 observed not chased",
+      "Math-#20 OPEN draft fingerprint-sync @ 5add2ee — blocked-input risk per dispatch v9",
+      "stop_catalog_only_churn=true; peer Task bc-47ff9a2e"
+    ],
+    "decision": "Record Math-#20 blocked-input risk only; do not refresh verified_against for catalog tip growth; verified_against remains c1046a5/96; three replays still post-merge-only"
   }
 }
