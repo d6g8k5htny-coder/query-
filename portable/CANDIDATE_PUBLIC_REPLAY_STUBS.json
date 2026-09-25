@@ -1,0 +1,39 @@
+{
+  "scientific_status_authority": false,
+  "meaning": "candidate stubs only; not catalog integration or theorem acceptance",
+  "artifacts": [
+    {
+      "bytes": 4052,
+      "commit": "191ea7d541a486736ba7bbddfd4eac25a6c4567b",
+      "key": "rn-fixed-remote-window-replay",
+      "path": "frontiers/remote_window_20260924/run_validation.py",
+      "repository": "Math-",
+      "scope": "Same-author finite algebra/implementation checks; not numerical Gaussian integration or independent proof review",
+      "sha256": "d97037ed8117f01aef0ca74b8c0155a8c2228069f57439c0690b94bde5423972",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Not integrated; not acceptance."
+    },
+    {
+      "bytes": 3503,
+      "commit": "1dfd49e84c577c2c7505ec45770d58a2de27f3cc",
+      "key": "p15-price-budget-replay",
+      "path": "frontiers/price_budget_20260924/run_validation.py",
+      "repository": "Math-",
+      "scope": "Same-author finite controls and semantic mutations; not independent analytic review",
+      "sha256": "58afe343befa8f306f6c3478576193d7b904d35ef3d86eb3ba80b8ec43a2214e",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Not integrated; not acceptance."
+    },
+    {
+      "bytes": 4389,
+      "commit": "8a13ee977530899daf8165b25a087a2badf6a941",
+      "key": "three-fronts-replay",
+      "path": "frontiers/three_fronts_20260924/run_validation.py",
+      "repository": "Math-",
+      "scope": "Same-author finite controls and semantic mutations for three-front package; not theorem acceptance",
+      "sha256": "1aaa4fefaa63e2d10f507de1905fd1719183aaf26a0f9c1a0bfb632549ebf259",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Not integrated; not acceptance."
+    }
+  ]
+}
