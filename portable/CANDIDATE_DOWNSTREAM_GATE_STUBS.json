@@ -1,0 +1,73 @@
+{
+  "scientific_status_authority": false,
+  "meaning": "candidate stubs only; not catalog integration or theorem acceptance",
+  "math_tip": "b47af3a52c6ab14426348a06787a5f0c5cb721c7",
+  "artifacts": [
+    {
+      "bytes": 2218,
+      "commit": "5887a2f8aaf121760362e6e90f9974f1e0078bc5",
+      "key": "downstream-hard-gate",
+      "path": "frontiers/downstream_gate_20260925/SCOPE.md",
+      "repository": "Math-",
+      "scope": "Fail-closed downstream promotion control scope; engineering integrity only, not theorem acceptance",
+      "sha256": "c7b5bb0ec34f53395b96ae24edceb3b5b0a3451caf7df6205b924d40e9e9fd84",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    },
+    {
+      "bytes": 18004,
+      "commit": "e62a3f1de6e7ec0e5c30811707562cd48d0570c8",
+      "key": "downstream-hard-gate-code",
+      "path": "frontiers/downstream_gate_20260925/hard_gate.py",
+      "repository": "Math-",
+      "scope": "Exact finite dependency-graph promotion checker; not analytic review or status flip",
+      "sha256": "ab96a55966e3624377ada4309d8d68a68e98693e64ef6f91f7a883373be6566e",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    },
+    {
+      "bytes": 13232,
+      "commit": "4da9165d1ce701ffed30b33ebb3d49807bee7dcd",
+      "key": "downstream-hard-gate-tests",
+      "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
+      "repository": "Math-",
+      "scope": "27 finite controls for hard-gate behavior; not independent mathematical review",
+      "sha256": "7bab1389873b77e49fad60c707508b95fe21bda8ee8761e69cd9fe9f3814797c",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    },
+    {
+      "bytes": 5795,
+      "commit": "05ec7d16888179b1979ae5f5071ed1e444093a76",
+      "key": "downstream-hard-gate-output",
+      "path": "frontiers/downstream_gate_20260925/RESULTS.json",
+      "repository": "Math-",
+      "scope": "Reproducible hard-gate ledger output; not scientific acceptance",
+      "sha256": "f77627419254266de7c6e362b920a419f45abb43116a0afb8510640ae0c7a2cc",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    },
+    {
+      "bytes": 5639,
+      "commit": "199ed0351c5010d63925fdd657d2b7684f0a57af",
+      "key": "downstream-hard-gate-replay",
+      "path": "frontiers/downstream_gate_20260925/run_validation.py",
+      "repository": "Math-",
+      "scope": "Same-author finite controls and semantic mutations; not theorem acceptance",
+      "sha256": "8b7dd56e5d497e4efafc428146e85a550ce02a3c85a6da645d0e0b6d34c93ea7",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    },
+    {
+      "bytes": 12191,
+      "commit": "5887a2f8aaf121760362e6e90f9974f1e0078bc5",
+      "key": "downstream-hard-gate-graph",
+      "path": "frontiers/downstream_gate_20260925/GRAPH.json",
+      "repository": "Math-",
+      "scope": "Machine-readable D0-D7 dependency graph identities; not claim-status authority",
+      "sha256": "34100e8541f7b1893bbc7207d2183762b60070c443da28f670953437515ef496",
+      "visibility": "public",
+      "note": "Candidate only for writable meta-framework peer. Tip package after Math- hard-gate land. Not integrated; not acceptance. Avoid racing meta PR #6 Drive/mesoscopic catalog draft."
+    }
+  ]
+}
