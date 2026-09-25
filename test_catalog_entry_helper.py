@@ -147,15 +147,16 @@ class CatalogEntryHelper(unittest.TestCase):
         bundle = json.loads((ROOT / 'portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json').read_text())
         self.assertFalse(bundle['scientific_status_authority'])
         keys = {row['key'] for row in bundle['artifacts']}
-        self.assertIn('downstream-hard-gate', keys)
-        self.assertIn('downstream-hard-gate-scope', keys)
-        self.assertIn('downstream-hard-gate-replay', keys)
+        self.assertIn('downstream-hard-gate-pr15', keys)
+        self.assertIn('downstream-hard-gate-pr15-replay', keys)
+        self.assertIn('downstream-hard-gate-pr15-git-audit', keys)
         for row in bundle['artifacts']:
             self.assertEqual(row['visibility'], 'public')
             self.assertRegex(row['commit'], r'^[0-9a-f]{40}$')
             self.assertRegex(row['sha256'], r'^[0-9a-f]{64}$')
             self.assertTrue(row['path'].startswith('frontiers/downstream_gate_20260925/'))
-        readme = next(r for r in bundle['artifacts'] if r['key'] == 'downstream-hard-gate')
+            self.assertTrue(row['key'].startswith('downstream-hard-gate-pr15'))
+        readme = next(r for r in bundle['artifacts'] if r['key'] == 'downstream-hard-gate-pr15')
         self.assertEqual(readme['path'], 'frontiers/downstream_gate_20260925/README.md')
 
 

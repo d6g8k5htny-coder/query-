@@ -35,15 +35,16 @@
     "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
     "status": "aligned_to_meta6_tip_pins",
     "keys": [
-      "downstream-hard-gate",
-      "downstream-hard-gate-scope",
-      "downstream-hard-gate-code",
-      "downstream-hard-gate-tests",
-      "downstream-hard-gate-output",
-      "downstream-hard-gate-replay",
-      "downstream-hard-gate-graph"
+      "downstream-hard-gate-pr15",
+      "downstream-hard-gate-pr15-code",
+      "downstream-hard-gate-pr15-tests",
+      "downstream-hard-gate-pr15-output",
+      "downstream-hard-gate-pr15-replay",
+      "downstream-hard-gate-pr15-git-audit",
+      "downstream-hard-gate-pr15-transition-tests",
+      "downstream-hard-gate-pr15-source-files"
     ],
-    "note": "Refreshed to Math- tip ac868b2 after TIP_DRIFT (transition gate integrate); scope+graph bytes unchanged vs baca69c; README/code/tests/output/replay updated. Candidate only — not meta catalog land."
+    "note": "Math-#15 MERGED @ ac868b2; meta catalogs tip under downstream-hard-gate-pr15* and keeps frozen downstream-hard-gate* @ baca69c. Candidate bundle tracks pr15* tip identities only (TIP_DRIFT-safe)."
   },
   "still_pending_after_meta6": [
     "rn-fixed-remote-window-replay",
@@ -60,10 +61,10 @@
   "avoid_racing": [
     "meta-framework#6 bottleneck-routing lane (stop_catalog_only_churn; do not chase tip growth past recorded routing)",
     "google-drive#3 selective Drive replicas",
+    "Math- #15 MERGED @ ac868b2; cataloged as downstream-hard-gate-pr15* (frozen baca69c keys retained on meta)",
     "Math- D5 live path: #19 (ee8629f3) → #9 author regen → clean mapping successor; do not consume CLOSED #14",
     "Math- #20 OPEN draft fingerprint-sync map — blocked-input risk until pin AMEND; do not harden PR14-style maps",
     "Math- #21 OPEN inner-axial density candidate (do_not_duplicate); distinct-lane review only — not query- catalog",
-    "Math- #15 hosted-green but needs distinct technical review (not finished gate source)",
     "main #98 CI green @ 776fdb7 — eng only; #90 still OPEN; not query- lane",
     "main research/inventable drafts; vault #91"
   ],
@@ -84,7 +85,7 @@
       "Math-#9 author regeneration",
       "clean mapping successor"
     ],
-    "math_pr15": "OPEN hosted-green head 8c4c946a; needs distinct technical review; not finished gate source",
+    "math_pr15": "MERGED to Math- main ac868b2; meta catalogs downstream-hard-gate-pr15* tip keys; frozen baca69c gate keys retained",
     "math_pr20": {
       "state": "OPEN",
       "disposition": "BLOCKED_INPUT_RISK",
@@ -104,10 +105,11 @@
   },
   "meta_tip_observed_not_chased": {
     "meta_pr": 6,
-    "head": "c4e675a055a472ae567a6a0bcd4ffab276ff0b1d",
-    "dispatch": "v10",
-    "note": "dispatch v10 index (PR98 green, PR21 density, lane map); stop_catalog_only_churn — verified_against stays c1046a5/96 unless merge or TIP_DRIFT",
-    "checked_at_utc": "2026-09-25T20:28:30Z"
+    "head": "9c2779f4e96d078f8028b5e00367c044f724108d",
+    "dispatch": "v11",
+    "catalog_count": 120,
+    "note": "dispatch v11 + PR15 merge catalog; stop_catalog_only_churn — verified_against stays c1046a5/96 unless merge or further TIP_DRIFT",
+    "checked_at_utc": "2026-09-25T20:33:30Z"
   },
   "stale_consumer_scan_20260925T1949Z": {
     "meaning": "exact paths still naming CLOSED Math-#14 or intermediate/known-bad Math-#9 tip fingerprints; not catalog authority",
@@ -222,5 +224,13 @@
       "standing rule: TIP_DRIFT refresh allowed under stop_catalog_only_churn"
     ],
     "decision": "Refresh CANDIDATE_DOWNSTREAM_GATE_STUBS to Math tip ac868b2; update PEER_HANDOFF math_tip; do not invent catalog keys; three replays still post-merge-only; catalog tip still unchased"
+  },
+  "collective_decision_20260925T2033Z": {
+    "sources": [
+      "meta-framework#6 synchronize → 9c2779f dispatch v11: Math-#15 MERGED; catalog downstream-hard-gate-pr15*; keep frozen baca69c keys",
+      "gate stub realign to pr15* tip identities matching catalog hashes @ ac868b2",
+      "stop_catalog_only_churn=true; verified_against remains c1046a5/96"
+    ],
+    "decision": "Retarget candidate gate bundle to downstream-hard-gate-pr15* (already cataloged on meta#6 head); do not reoffer as uncataloged; do not chase verified_against catalog count; three replays still post-merge-only"
   }
 }
