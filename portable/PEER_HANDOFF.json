@@ -19,7 +19,7 @@
       "verify_portable_stubs.py --check-math-tip drifted=[]"
     ],
     "decision": "Refresh PEER_HANDOFF verified_against to meta#6 tip f890782; gate pins still baca69c (no TIP_DRIFT); keep three replay stubs staged but unoffered until #6 merges; do not invent keys",
-    "closure_order_elsewhere": "owned outside query-; Math drafts #7/#9/#14/#15 and google-drive#3 not our lane"
+    "closure_order_elsewhere": "owned outside query-; Math-#14 CLOSED/BLOCKED INPUT; D5 live path #19→#9→successor; #15 needs distinct review; google-drive#3 not our lane"
   },
   "verified_against": {
     "meta_pr": 6,
@@ -58,13 +58,65 @@
     "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
   "avoid_racing": [
-    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 96 on PR head; lane=catalog/routing; dispatch v8)",
+    "meta-framework#6 bottleneck-routing lane (catalog growth paused; head c1046a5 / dispatch v8)",
     "google-drive#3 selective Drive replicas",
-    "Math- drafts #7 #9 #14 #15 mesoscopic/D5/transition",
+    "Math- D5 live path: #19 (ee8629f3) → #9 author regen → clean mapping successor; do not consume CLOSED #14",
+    "Math- #15 hosted-green but needs distinct technical review (not finished gate source)",
+    "main #98 source-level fixes; CI mixed/pending — not query- lane",
     "main research/inventable drafts; vault #91"
   ],
   "batch337_note": "superseded by batch340: Path C IDLE tip 848aea2; query- still stub currency vs meta#6 + tip-drift only",
-  "next_query_action": "Idle-watch meta#6 merge + Math tip; on merge offer only the three replay stubs; on TIP_DRIFT refresh gate stubs",
+  "next_query_action": "Stop catalog-only handoff churn on meta#6 tip growth; idle-watch #6 merge (then only three replay stubs) + Math tip TIP_DRIFT on gate stubs; bottleneck routing owned outside query-",
+  "stop_catalog_only_churn": true,
+  "bottleneck_routing_20260925T1948Z": {
+    "source": "https://github.com/d6g8k5htny-coder/meta-framework/pull/6#issuecomment-5838584395",
+    "lane_shift": "catalog_growth → bottleneck_routing",
+    "math_pr14": {
+      "state": "CLOSED",
+      "disposition": "BLOCKED_INPUT",
+      "head": "4f272f9765dedfa581161580aac09b7800dae6f6",
+      "title": "SUPERSEDED/BLOCKED INPUT — Map PR9 chart-J0 into post-hotfix D5 hard gate"
+    },
+    "d5_live_path": [
+      "Math-#19 OpenAI repair candidate head ee8629f37977f4132da4c5af7e1dd61e9d94aa1d",
+      "Math-#9 author regeneration",
+      "clean mapping successor"
+    ],
+    "math_pr15": "OPEN hosted-green head 8c4c946a; needs distinct technical review; not finished gate source",
+    "main_pr98": "OPEN head 0bc41ca; source-level fixes; CI verify mixed FAILURE/IN_PROGRESS at record time",
+    "scientific_effect": "NONE"
+  },
+  "stale_consumer_scan_20260925T1949Z": {
+    "meaning": "exact paths still naming CLOSED Math-#14 or intermediate/known-bad Math-#9 tip fingerprints; not catalog authority",
+    "query_repo": {
+      "commit_pins_to_pr14_or_pr9_tips": [],
+      "prose_only_mentions": [
+        "portable/PEER_HANDOFF.json (historical avoid_racing / closure_order text — superseded by bottleneck_routing_20260925T1948Z)",
+        "AGENTS.md:15 (generic Math- mesoscopic drafts race note)",
+        "README.md:56 (meta#6 mesoscopic race note)"
+      ],
+      "portable_stub_commits": {
+        "gate_bundle": "baca69c394ab42130c61771bee74e808703f1ce7 (Math- main tip; not PR9/PR14)",
+        "replay_stubs": [
+          "191ea7d541a4 (rn-fixed-remote-window-replay)",
+          "1dfd49e84c57 (p15-price-budget-replay)",
+          "8a13ee977530 (three-fronts-replay)"
+        ]
+      }
+    },
+    "meta_framework_pr6_head_c1046a5_observation_keys_pinning_pr9_intermediate_tips": [
+      "rn-mesoscopic-chart-tip-ea52f84 → reviews/rn-mesoscopic-chart-20260925/TIP_EA52F84.md (Math- tip ea52f84a33db)",
+      "rn-mesoscopic-chart-tip-4ea72517 → reviews/rn-mesoscopic-chart-20260925/TIP_4EA72517.md",
+      "rn-mesoscopic-chart-tip-c4e5107d → reviews/rn-mesoscopic-chart-20260925/TIP_C4E5107D.md",
+      "rn-mesoscopic-chart-tip-67b187c5 → reviews/rn-mesoscopic-chart-20260925/TIP_67B187C5.md",
+      "rn-mesoscopic-chart-tip-34f4ef4c → reviews/rn-mesoscopic-chart-20260925/TIP_34F4EF4C.md",
+      "rn-mesoscopic-chart-tip-d85f4ec4 → reviews/rn-mesoscopic-chart-20260925/TIP_D85F4EC4.md",
+      "rn-mesoscopic-chart-tip-f655cc22 → reviews/rn-mesoscopic-chart-20260925/TIP_F655CC22.md",
+      "rn-mesoscopic-chart-notes → reviews/rn-mesoscopic-chart-20260925/NOTES.md (older tip 5c8e2f85d047)",
+      "rn-mesoscopic-reduction-notes → reviews/rn-mesoscopic-20260925/NOTES.md"
+    ],
+    "note": "query- cannot edit meta-framework; listed meta paths are for writable peers. PR14 head 4f272f9 and graph fingerprint 19f1058 appear in CLOSED PR14 body only — no query- consumer."
+  },
   "accidental_issue": "query-#7 title 'test' was an Issues API probe; ignore as non-task",
   "meaning": "coordination receipt only; not a task queue or acceptance register",
   "collective_decision_20260925T1830Z": {
@@ -112,5 +164,15 @@
       "peer Task agent bc-1c23b0f3 (refresh handoff; no invent keys)"
     ],
     "decision": "Refresh PEER_HANDOFF verified_against to meta#6 tip c1046a5 (catalog 96); gate pins still baca69c (no TIP_DRIFT); three replay stubs still absent from PR head and remain post-merge-only; do not invent keys"
+  },
+  "collective_decision_20260925T1949Z": {
+    "sources": [
+      "meta-framework#6 comment 5838584395 (d6g8k5htny-coder): catalog growth → bottleneck routing",
+      "Math-#14 CLOSED/BLOCKED INPUT @ 4f272f9; #19 OPEN @ ee8629f3; #9 OPEN; #15 OPEN @ 8c4c946a",
+      "main#98 OPEN @ 0bc41ca CI verify mixed",
+      "query- portable stub scan: zero commit pins to PR14/PR9 tips",
+      "peer Task agent bc-bf728fe1"
+    ],
+    "decision": "Record bottleneck routing + PR14 CLOSED + D5 path PR19→PR9→successor in PEER_HANDOFF; set stop_catalog_only_churn; report stale-consumer paths (query prose-only; meta TIP_* observation keys for peers); do not invent catalog keys; three replays still post-merge-only; no further catalog-tip handoff churn unless merge or TIP_DRIFT"
   }
 }
