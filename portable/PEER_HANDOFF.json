@@ -24,12 +24,12 @@
   "verified_against": {
     "meta_pr": 6,
     "meta_branch": "cursor/catalog-drive-parents-5cb8",
-    "meta_head": "7ffa5c6603574a9c932e609f0c1c003341645041",
+    "meta_head": "3c3cf11675fab5c4cabc1067627f209a38ea3a51",
     "meta_pr_state": "OPEN",
-    "meta_catalog_count": 77,
+    "meta_catalog_count": 83,
     "math_tip": "baca69c394ab42130c61771bee74e808703f1ce7",
     "tip_drift": [],
-    "checked_at_utc": "2026-09-25T18:46:17Z"
+    "checked_at_utc": "2026-09-25T19:01:43Z"
   },
   "gate_stubs_vs_meta6": {
     "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
@@ -43,7 +43,7 @@
       "downstream-hard-gate-replay",
       "downstream-hard-gate-graph"
     ],
-    "note": "primary key downstream-hard-gate \u2192 README.md @ baca69c (still matches meta#6 at f890782)"
+    "note": "primary key downstream-hard-gate → README.md @ baca69c (still matches meta#6 registry at 3c3cf11); meta also catalogs downstream-hard-gate-notes (review notes only — not in our candidate bundle)"
   },
   "still_pending_after_meta6": [
     "rn-fixed-remote-window-replay",
@@ -58,7 +58,7 @@
     "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
   "avoid_racing": [
-    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 77 on PR head; lane=catalog/routing)",
+    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 83 on PR head; lane=catalog/routing; dispatch v6)",
     "google-drive#3 selective Drive replicas",
     "Math- drafts #7 #9 #14 #15 mesoscopic/D5/transition",
     "main research/inventable drafts; vault #91"
@@ -75,7 +75,7 @@
     ],
     "decision": "Refresh PEER_HANDOFF to meta#6 tip e2259d4; gate pins still baca69c; three replay stubs still post-merge-only; idle otherwise"
   },
-  "batch340_note": "trial Path C IDLE tip 848aea2; wake/assign pulse; skip research drafts; query- idle-watch meta#6",
+  "batch340_note": "superseded by batch343: Path C IDLE@0019 tip fcad723; wake/assign pulse; skip research drafts; query- idle-watch meta#6",
   "collective_decision_20260925T1845Z": {
     "sources": [
       "meta-framework#6 head 7ffa5c6 (catalog 77)",
@@ -83,5 +83,15 @@
       "verify_portable_stubs tip_drift=[]"
     ],
     "decision": "Refresh PEER_HANDOFF to 7ffa5c6; gate baca69c unchanged; three replay stubs still post-merge-only"
+  },
+  "batch343_note": "trial MULTI_AGENT_WAKE_BATCH343 Path C IDLE@0019 tip fcad723 (evidence tip c44f137 idle_no_commit); query- stub currency vs meta#6 + tip-drift only",
+  "collective_decision_20260925T1901Z": {
+    "sources": [
+      "meta-framework#6 head 3c3cf11 (catalog 83; multi-agent-dispatch-20260925-v6 + OA-REVIEW watch + L4/L5 ledger)",
+      "trial MULTI_AGENT_WAKE_BATCH343.json Path C IDLE@0019 @ fcad723",
+      "verify_portable_stubs --check-math-tip drifted=[]",
+      "peer Task agents bc-70d88310 / bc-0702414a (refresh handoff; no invent keys)"
+    ],
+    "decision": "Refresh PEER_HANDOFF verified_against to meta#6 tip 3c3cf11 (catalog 83); gate pins still baca69c (no TIP_DRIFT); three replay stubs still absent from PR head and remain post-merge-only; do not invent keys"
   }
 }
