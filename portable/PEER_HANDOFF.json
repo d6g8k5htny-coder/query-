@@ -66,6 +66,7 @@
     "Math- #20 OPEN draft fingerprint-sync map — blocked-input risk until pin AMEND; do not harden PR14-style maps",
     "Math- #21 OPEN inner-axial density candidate (do_not_duplicate); distinct-lane review only — not query- catalog",
     "Math- #22 OPEN thin-tube candidate (OA-D5-THIN-TUBE-20260925); do_not_duplicate; distinct-lane review only",
+    "Math- #16 OPEN @ 32b80ee — bounded reciprocal review assigned to meta agent bc-01a0d95b-5971 (not query-); do not edit candidate",
     "main #98 CI green @ 776fdb7 — eng only; #90 still OPEN; not query- lane",
     "main research/inventable drafts; vault #91"
   ],
@@ -240,5 +241,30 @@
       "stop_catalog_only_churn=true; verified_against remains c1046a5/96"
     ],
     "decision": "Retarget candidate gate bundle to downstream-hard-gate-pr15* (already cataloged on meta#6 head); do not reoffer as uncataloged; do not chase verified_against catalog count; three replays still post-merge-only"
+  },
+  "collective_decision_20260925T2037Z": {
+    "sources": [
+      "meta-framework#6 synchronize → ddab2a4 dispatch v12 (PR22 thin-tube + PR9 tip watch)",
+      "Math-#22 OPEN @ 35eddbb do_not_duplicate; Math tip still ac868b2",
+      "stop_catalog_only_churn=true"
+    ],
+    "decision": "Record Math-#22 avoid only; do not invent thin-tube catalog stubs; verified_against remains c1046a5/96; three replays still post-merge-only"
+  },
+  "dylan_assignment_20260925T2045Z": {
+    "source": "https://github.com/d6g8k5htny-coder/meta-framework/pull/6#issuecomment-5839347079",
+    "assigned_agent": "bc-01a0d95b-5971-7bb3-a1ce-5090c49d5cb8",
+    "lane": "meta-framework bounded reciprocal review",
+    "target": "Math-#16 @ 32b80ee085dc6a40113d1e46e333cda50d57ba21 TRANSVERSE_BOUND_CANDIDATE.md",
+    "query_role": "not assignee; do not steal review; reinforce pause catalog-only increments",
+    "fallback_for_assignee": "main#76 historical-selector vs fixed-remote-domain crosswalk",
+    "scientific_effect": "NONE"
+  },
+  "collective_decision_20260925T2045Z": {
+    "sources": [
+      "meta#6 comment 5839347079 Dylan: pause catalog-only; assign Math-#16 review to bc-01a0d95b-5971",
+      "meta tip still ddab2a4; Math tip ac868b2 tip_drift=[]; stop_catalog_only_churn",
+      "query- PEER_HANDOFF already current on PR15/PR22 routing"
+    ],
+    "decision": "Record Dylan PR16 review assignment as outside query-; idle eng; do not invent stubs; three replays still post-merge-only"
   }
 }
