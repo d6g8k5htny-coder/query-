@@ -65,6 +65,7 @@
     "Math- D5 live path: #19 (ee8629f3) → #9 author regen → clean mapping successor; do not consume CLOSED #14",
     "Math- #20 OPEN draft fingerprint-sync map — blocked-input risk until pin AMEND; do not harden PR14-style maps",
     "Math- #21 OPEN inner-axial density candidate (do_not_duplicate); distinct-lane review only — not query- catalog",
+    "Math- #22 OPEN thin-tube candidate (OA-D5-THIN-TUBE-20260925); do_not_duplicate; distinct-lane review only",
     "main #98 CI green @ 776fdb7 — eng only; #90 still OPEN; not query- lane",
     "main research/inventable drafts; vault #91"
   ],
@@ -100,16 +101,23 @@
       "claim": "OA-D5-AXIAL-DENSITY-20260925-CONSENSUS",
       "note": "Inner-axial density candidate; distinct-lane review only; not query- catalog work; scientific effect NONE"
     },
+    "math_pr22": {
+      "state": "OPEN",
+      "disposition": "DO_NOT_DUPLICATE",
+      "head": "35eddbb5ab7dee33a659b64d8e9b0efeec16b70d",
+      "claim": "OA-D5-THIN-TUBE-20260925",
+      "path": "frontiers/rn_thin_tube_20260925/",
+      "note": "Thin-tube Gaussian suppression candidate; distinct-lane review only; do not catalog from query-; scientific effect NONE"
+    },
     "main_pr98": "OPEN head 776fdb7; CI verify/navigation green at dispatch v10; eng CI ≠ mathematical claim; #90 still OPEN",
     "scientific_effect": "NONE"
   },
   "meta_tip_observed_not_chased": {
     "meta_pr": 6,
-    "head": "9c2779f4e96d078f8028b5e00367c044f724108d",
-    "dispatch": "v11",
-    "catalog_count": 120,
-    "note": "dispatch v11 + PR15 merge catalog; stop_catalog_only_churn — verified_against stays c1046a5/96 unless merge or further TIP_DRIFT",
-    "checked_at_utc": "2026-09-25T20:33:30Z"
+    "head": "ddab2a43c40b0491cd6325e5911cc993c8f48199",
+    "dispatch": "v12",
+    "note": "dispatch v12 (PR22 thin-tube + PR9 tip watch); stop_catalog_only_churn — verified_against stays c1046a5/96",
+    "checked_at_utc": "2026-09-25T20:37:30Z"
   },
   "stale_consumer_scan_20260925T1949Z": {
     "meaning": "exact paths still naming CLOSED Math-#14 or intermediate/known-bad Math-#9 tip fingerprints; not catalog authority",
