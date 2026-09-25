@@ -9,17 +9,46 @@
     "comment on meta-framework PRs (Issues:write 403)",
     "flip lemma_closed or research status"
   ],
-  "ready_for_meta_peers": [
+  "verified_against": {
+    "meta_pr": 6,
+    "meta_branch": "cursor/catalog-drive-parents-5cb8",
+    "meta_head": "64f2eec3ea8d6cef325b0438323fd64878f8815d",
+    "meta_pr_state": "OPEN",
+    "meta_catalog_count": 55,
+    "math_tip": "baca69c394ab42130c61771bee74e808703f1ce7",
+    "checked_at_utc": "2026-09-25T18:06:00Z"
+  },
+  "gate_stubs_vs_meta6": {
+    "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
+    "status": "absorbed_by_open_meta_pr6",
+    "byte_matched_paths": [
+      "downstream-hard-gate-code",
+      "downstream-hard-gate-tests",
+      "downstream-hard-gate-output",
+      "downstream-hard-gate-replay",
+      "downstream-hard-gate-graph"
+    ],
+    "path_identity_note": "meta#6 maps key downstream-hard-gate to frontiers/downstream_gate_20260925/README.md @ baca69c; query- stub still pins SCOPE.md @ 5887a2f8 (SCOPE.md bytes unchanged at tip). Do not treat stub SCOPE.md as a second catalog key."
+  },
+  "still_pending_after_meta6": [
+    "rn-fixed-remote-window-replay",
+    "p15-price-budget-replay",
+    "three-fronts-replay"
+  ],
+  "ready_for_meta_peers_post_merge": [
     "portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json",
-    "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
     "portable/RN_FIXED_REMOTE_REPLAY_STUB.json"
   ],
-  "meta_readme_drift": "main README still says 18 public artifacts; registry has 22 including rn-fixed-remote-window*",
-  "avoid_racing": [
-    "meta-framework#6 cursor/catalog-drive-parents-5cb8",
-    "google-drive#3 selective Drive replicas",
-    "Math- drafts #7 #9 mesoscopic"
+  "do_not_reoffer_as_uncataloged": [
+    "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json"
   ],
-  "batch336_note": "trial Path C IDLE; research main drafts skipped; this agent owns query- catalog stub currency + tip-drift gate",
+  "avoid_racing": [
+    "meta-framework#6 cursor/catalog-drive-parents-5cb8 (catalog 22→55; lane=catalog/routing)",
+    "google-drive#3 selective Drive replicas",
+    "Math- drafts #7 #9 #14 mesoscopic/D5",
+    "main PR98 / vault #91 / Math PR9 axial→PR14 (closure order owned elsewhere)"
+  ],
+  "batch336_note": "trial Path C IDLE tip eeebb28; wake on tip-sync/grant/CI; skip research main drafts; query- owns stub currency vs meta#6 + tip-drift gate only",
+  "next_query_action": "Keep PEER_HANDOFF current against meta#6 head; after #6 merges, surface only the three absent replay stubs — do not invent new gate stubs",
   "meaning": "coordination receipt only; not a task queue or acceptance register"
 }
