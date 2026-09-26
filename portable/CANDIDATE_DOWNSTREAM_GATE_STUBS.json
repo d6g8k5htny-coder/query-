@@ -1,13 +1,13 @@
 {
   "scientific_status_authority": false,
   "meaning": "candidate stubs checked at the recorded Math tip; aligned_to_meta fields retain prior catalog-alignment provenance, not a new catalog update; not catalog authority",
-  "math_tip": "58f7936d1138b24dd6cc988081d74d07683611d6",
+  "math_tip": "d6628da09384728992dcbe6e921cc28ba85aebb0",
   "aligned_to_meta_pr": 6,
   "aligned_to_meta_head": "64f2eec3ea8d6cef325b0438323fd64878f8815d",
   "artifacts": [
     {
       "bytes": 3559,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate",
       "path": "frontiers/downstream_gate_20260925/README.md",
       "repository": "Math-",
@@ -18,7 +18,7 @@
     },
     {
       "bytes": 2218,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-scope",
       "path": "frontiers/downstream_gate_20260925/SCOPE.md",
       "repository": "Math-",
@@ -29,7 +29,7 @@
     },
     {
       "bytes": 26557,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-code",
       "path": "frontiers/downstream_gate_20260925/hard_gate.py",
       "repository": "Math-",
@@ -40,7 +40,7 @@
     },
     {
       "bytes": 18920,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-tests",
       "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
       "repository": "Math-",
@@ -51,7 +51,7 @@
     },
     {
       "bytes": 6509,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-output",
       "path": "frontiers/downstream_gate_20260925/RESULTS.json",
       "repository": "Math-",
@@ -62,7 +62,7 @@
     },
     {
       "bytes": 7517,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-replay",
       "path": "frontiers/downstream_gate_20260925/run_validation.py",
       "repository": "Math-",
@@ -73,7 +73,7 @@
     },
     {
       "bytes": 15375,
-      "commit": "58f7936d1138b24dd6cc988081d74d07683611d6",
+      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
       "key": "downstream-hard-gate-graph",
       "path": "frontiers/downstream_gate_20260925/GRAPH.json",
       "repository": "Math-",
