@@ -15,6 +15,14 @@ class SourceRelease(unittest.TestCase):
             base=Path(td);repo=self.make_repo(base);a=base/'a.tar.gz';b=base/'b.tar.gz';ra=build_source_archive(repo,a,1700000000);rb=build_source_archive(repo,b,1700000000);self.assertEqual(a.read_bytes(),b.read_bytes());self.assertEqual(ra['archive_sha256'],rb['archive_sha256'])
             with tarfile.open(a,'r:gz') as tf:
                 names=tf.getnames();self.assertIn('SOURCE_MANIFEST.json',names);self.assertIn('BUILD_INFO.json',names);self.assertFalse(any('.git' in n or '__pycache__' in n or n.startswith('sandbox') for n in names));manifest=json.load(tf.extractfile('SOURCE_MANIFEST.json'));self.assertFalse(manifest['scientific_status_authority']);self.assertFalse(manifest['release_eligible']);self.assertEqual(manifest['distribution'],'universal-law-query')
+    def test_gitignored_untracked_file_is_not_packed(self):
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td);repo=self.make_repo(base);(repo/'.gitignore').write_text('src/ignored_secret.py\n');subprocess.run(['git','add','.gitignore'],cwd=repo,check=True);subprocess.run(['git','commit','-qm','ignore'],cwd=repo,check=True);(repo/'src/ignored_secret.py').write_text('SECRET');out=base/'x.tar.gz';build_source_archive(repo,out,1700000000)
+            with tarfile.open(out,'r:gz') as tf:self.assertNotIn('src/ignored_secret.py',tf.getnames())
+    def test_symlink_license_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td);repo=self.make_repo(base);outside=base/'outside';outside.write_text('fake');(repo/'LICENSE').symlink_to(outside);subprocess.run(['git','add','LICENSE'],cwd=repo,check=True);subprocess.run(['git','commit','-qm','license'],cwd=repo,check=True)
+            with self.assertRaisesRegex(ValueError,'symlink'):build_source_archive(repo,base/'x.tar.gz',1700000000)
     def test_output_inside_repo_is_refused(self):
         with tempfile.TemporaryDirectory() as td:
             repo=self.make_repo(Path(td))

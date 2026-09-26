@@ -11,20 +11,17 @@ def _git(root:Path,*args:str)->str:
     return p.stdout.strip()
 
 def _include_files(root:Path)->list[Path]:
+    raw=_git(root,'ls-files','-z','--',*STATIC_NAMES,*TREE_ROOTS)
     out=[]
-    for name in STATIC_NAMES:
-        p=root/name
-        if p.is_file(): out.append(p)
-    for base in TREE_ROOTS:
-        d=root/base
-        if d.is_dir():
-            for p in d.rglob('*'):
-                if not p.is_file() or p.is_symlink(): continue
-                rel=p.relative_to(root)
-                if any(part in {'__pycache__','.git','sandbox'} for part in rel.parts): continue
-                if p.suffix in {'.pyc','.pyo'}: continue
-                out.append(p)
-    return sorted(set(out),key=lambda p:p.relative_to(root).as_posix())
+    for reltext in (x for x in raw.split('\0') if x):
+        rel=Path(reltext)
+        if any(part.casefold() in {'sandbox','__pycache__','.git'} for part in rel.parts): raise ValueError('private/generated path refused: '+reltext)
+        if rel.suffix in {'.pyc','.pyo'}: raise ValueError('compiled payload refused: '+reltext)
+        path=root/rel
+        if path.is_symlink(): raise ValueError('symlink payload refused: '+reltext)
+        if not path.is_file(): raise ValueError('tracked payload is not a regular file: '+reltext)
+        out.append(path)
+    return sorted(out,key=lambda p:p.relative_to(root).as_posix())
 
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
@@ -42,7 +39,6 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int)->dict
     files=[];payloads=[]
     for p in _include_files(root):
         rel=p.relative_to(root).as_posix()
-        if 'sandbox' in Path(rel).parts: raise ValueError('private path refused')
         raw=p.read_bytes();files.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)});payloads.append((rel,raw))
     eligible=any(row['path']=='LICENSE' for row in files)
     manifest={'schema_version':'1.0','distribution':distribution,'version':version,'repository':'d6g8k5htny-coder/query-','commit':commit,'scientific_status_authority':False,'release_eligible':eligible,'files':files}
