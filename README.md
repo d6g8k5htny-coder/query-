@@ -34,7 +34,7 @@ The wrapper and package CLI are parity-tested for stdout, stderr, exit status, l
   - `portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`
   - `portable/RN_FIXED_REMOTE_REPLAY_STUB.json`
 - `verify_portable_stubs.py` enforces exact byte identity (`commit`, `path`, `bytes`, `sha256`) for public artifacts.
-- `--check-math-tip` reports TIP_DRIFT when current `Math-` default-tip bytes diverge from the pinned downstream-gate stubs.
+- `--check-math-tip` reports TIP_DRIFT when current `Math-` default-tip bytes diverge from the pinned downstream-gate stubs. It compares bytes, not tip commit equality: documentation-only Math commits can leave this check green while the recorded `math_tip` needs an identity refresh.
 - Scientific effect is **NONE**: this repository does not change theorem status, prize disposition, `lemma_closed`, or acceptance registers.
 
 ## Topic → exact lookup key
