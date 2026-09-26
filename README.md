@@ -1,6 +1,23 @@
 # Query — exact-source research lookup
 
-`research_query.py` is a standard-library, read-only CLI. It queries the curated catalog in `meta-framework`, reports the exact commit/path/hash and scope, and optionally verifies local payload bytes. It does not access the network, execute retrieved code, edit repositories, determine scientific acceptance or claim the catalog is current.
+The canonical implementation now lives in `src/universal_law_query/`. The historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
+
+The package is standard-library at runtime, read-only, and has **no scientific-status authority**. It queries the curated catalog in `meta-framework`, reports exact commit/path/hash/scope metadata, and optionally verifies local bytes. It does not determine theorem acceptance.
+
+## Source package
+
+```bash
+python -m pip install --no-deps --no-build-isolation .
+universal-law-query --registry ../meta-framework/registry.json --key side24-coefficient
+```
+
+From an uninstalled checkout, the compatibility command is still:
+
+```bash
+python -B -S research_query.py --registry ../meta-framework/registry.json --key side24-coefficient
+```
+
+The wrapper and package CLI are parity-tested for stdout, stderr, exit status, lookup, verification and refusal paths.
 
 ## Topic → exact lookup key
 
@@ -15,46 +32,27 @@
 | P15 restricted transformed-price successor | `p15-price-budget` |
 | P15 full probability range and sharp factor | `p15-full-price` |
 
-Code, tests, outputs, the full-price replay runner and the selected coefficient Drive replica use the same key stem with `-code`, `-tests`, `-output`, `-replay` or `-drive-replica` suffixes. The public catalog currently holds 22 artifacts; this tool never treats a catalog hit as theorem acceptance.
+Unknown keys are refused rather than guessed. Exact-byte verification rejects path traversal, symlink payloads, mutable refs and private catalog artifacts.
 
-With sibling checkouts:
+## Local engineering controls
 
-```sh
-python -B -S research_query.py --registry ../meta-framework/registry.json --key side24-coefficient
-python -B -S research_query.py --registry ../meta-framework/registry.json --key rn-fixed-remote-window
-python -B -S research_query.py --registry ../meta-framework/registry.json --verify --workspace ..
-```
-
-Omit `--key` and `--verify` to list repository roles and available keys. An unknown key is refused rather than guessed. Verification requires the exact listed payloads; a later legitimate edit also fails the old hash and needs a new reviewed catalog entry.
-
-Local engineering controls (no sibling checkout required):
-
-```sh
+```bash
 python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py test_verify_portable_stubs.py
+python -B -S -m unittest discover -s tests -p 'test_*.py' -v
 python -B -S verify_portable_stubs.py
 python -B -S verify_portable_stubs.py --check-math-tip
 ```
 
-The twenty cross-repository federation controls remain in `trial/federation/test_federation.py`. Keep `research_query.py` byte-identical to the pinned federation/catalog hashes unless those pins are updated together.
+The older root tests remain as compatibility controls; package tests are the canonical implementation tests.
 
-To prepare a candidate public catalog stub from local bytes (does not edit `meta-framework`):
+## Candidate public catalog stubs
 
-```sh
-python -B -S catalog_entry_helper.py \
-  --file ../Math-/frontiers/remote_window_20260924/run_validation.py \
-  --repository Math- \
-  --path frontiers/remote_window_20260924/run_validation.py \
-  --key rn-fixed-remote-window-replay \
-  --scope 'Same-author finite algebra/implementation checks; not numerical Gaussian integration'
-```
+`catalog_entry_helper.py` remains a compatibility wrapper for `universal_law_query.catalog_entry`. It refuses sandbox repositories, symlinks, unsafe paths and mutable commits. A printed stub is not catalog integration or theorem acceptance.
 
-The helper refuses sandbox paths, symlinks, mutable refs and non-public repositories. A printed stub is not catalog integration, currentness or theorem acceptance. Ready candidates for writable `meta-framework` peers:
+Portable candidates remain under `portable/`; the verifier checks exact public bytes at declared commits. Private `sandbox` material is never fetched or published.
 
-- [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) — uncataloged Math replay runners
-- [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none; refresh when Math- tip changes gate bytes)
+## Source publication dry run
 
-Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes). Live peer coordination status for writable agents is in [`portable/PEER_HANDOFF.json`](portable/PEER_HANDOFF.json).
+`scripts/build_source_release.py` builds a deterministic package-scoped archive with normalized metadata and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`. The builder refuses dirty trees and outputs inside the repository. Because this repository currently has no `LICENSE` file, the generated manifest records `release_eligible: false`; no public release is authorized by the dry run.
 
-The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
-
-Main campaign61 and the actual source-linked reviews remain the place for current scientific discussion. This executable tool supersedes the earlier empty-by-design shell; it does not create another claim-status database.
+Cross-repository integration controls remain in `trial`. The curated public artifact routing authority remains `meta-framework/registry.json`.
