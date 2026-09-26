@@ -37,6 +37,26 @@ The wrapper and package CLI are parity-tested for stdout, stderr, exit status, l
 - `--check-math-tip` reports TIP_DRIFT when current `Math-` default-tip bytes diverge from the pinned downstream-gate stubs.
 - Scientific effect is **NONE**: this repository does not change theorem status, prize disposition, `lemma_closed`, or acceptance registers.
 
+`research_query.py` itself changed identity when the canonical code moved to `src/`: it
+was the implementation at **5577 bytes / `54105dcd…`** and is now a **541-byte /
+`b49d32fe…`** wrapper. The pre-migration workflow asserted the old byte count inline and
+that step went away in the same change, so
+[`portable/FEDERATION_IDENTITY_TRANSITION.json`](portable/FEDERATION_IDENTITY_TRANSITION.json)
+records both identities, every downstream consumer, and why each is unaffected:
+
+- `trial/federation/replay.py` pins the **immutable commit** `8e201316…`, so it keeps
+  fetching the superseded bytes from that commit — that pin is still correct and must not
+  be repointed.
+- `trial/federation/test_federation.py` imports the wrapper instead of pinning it, and uses
+  `load_catalog`, `lookup`, `verify` and `CatalogError`. Those four names are a
+  cross-repository interface; `tests/test_federation_identity.py` asserts the wrapper still
+  exports them, because dropping one breaks another repository's suite.
+- `meta-framework/registry.json`'s 22 artifacts come from `Math-` (21) and `google-drive`
+  (1); none is from `query-`.
+
+Re-asserting 5577 bytes would be false, so the replacement control pins what is true now and
+keeps the old identity on record.
+
 ## Topic → exact lookup key
 
 | Topic | Exact lookup key |

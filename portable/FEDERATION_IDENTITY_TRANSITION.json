@@ -1,0 +1,81 @@
+{
+  "canonical_implementation_now": [
+    "src/universal_law_query/catalog.py",
+    "src/universal_law_query/cli.py",
+    "src/universal_law_query/catalog_entry.py",
+    "src/universal_law_query/stub_verify.py"
+  ],
+  "current_identity": {
+    "bytes": 541,
+    "git_blob": "0a89183d049916052056eb544825a56cc8fd820a",
+    "role": "compatibility wrapper re-exporting the package",
+    "seen_at_commit": "99372d3c9e7e0c810e08746f676acbaabdb25941",
+    "sha256": "b49d32fed78ee78f688fee8e224629000964bf2b285d59e669a4dfbe9f131bfe"
+  },
+  "downstream_consumers": [
+    {
+      "effect_of_this_transition": "NONE",
+      "line": 20,
+      "path": "federation/replay.py",
+      "pins": {
+        "bytes": 5577,
+        "commit": "8e201316d17cf4ff3c679e1e9906d4b016ac6730",
+        "sha256": "54105dcd723e71b19263afc8f449a7d77b78cec27148f13603f33be7727e6b6b"
+      },
+      "reason": "The pin names an immutable 40-hex commit and replay.py asserts that shape, so it fetches the superseded bytes from that commit regardless of what the default branch later holds. The pin stays correct and must NOT be repointed by this change.",
+      "repository": "trial"
+    },
+    {
+      "effect_of_this_transition": "NONE",
+      "path": "federation/test_federation.py",
+      "pins": null,
+      "reason": "Imports the wrapper as a module rather than pinning its bytes. Verified by running trial's 20 federation controls against an identical workspace fixture with query- at the pre-migration and post-migration heads: 20/20 OK both times.",
+      "repository": "trial"
+    },
+    {
+      "effect_of_this_transition": "NONE",
+      "path": "registry.json",
+      "pins": null,
+      "reason": "The 22 public catalog artifacts reference Math- (21) and google-drive (1). None is from query-.",
+      "repository": "meta-framework"
+    },
+    {
+      "effect_of_this_transition": "CONTROL REMOVED BY THE SRC MIGRATION",
+      "path": ".github/workflows/query-ci.yml",
+      "pins": {
+        "bytes": 5577,
+        "sha256": "54105dcd723e71b19263afc8f449a7d77b78cec27148f13603f33be7727e6b6b",
+        "step": "pinned_federation_match"
+      },
+      "reason": "The pre-migration workflow asserted research_query.py was exactly 5577 bytes / 54105dcd723e71b19263afc8f449a7d77b78cec27148f13603f33be7727e6b6b. The migration changed the file and deleted that assertion in the same change, so nothing would have reported the transition. Replaced by tests/test_federation_identity.py, which pins the CURRENT wrapper identity from this record and asserts the four exported names above. Re-asserting the old byte count would be false; the old identity is preserved here and at the pinned commit.",
+      "repository": "query-"
+    }
+  ],
+  "schema": "query-federation-identity-transition-v1",
+  "scientific_effect": "NONE",
+  "scientific_status_authority": false,
+  "subject": {
+    "path": "research_query.py",
+    "repository": "query-"
+  },
+  "superseded_identity": {
+    "bytes": 5577,
+    "git_blob": "c2dd46a24ed9377b2dcf32c2370ed9463b170fb1",
+    "role": "canonical implementation",
+    "seen_at_commit": "a61656fc7cbe704f5b874e1cae08637fb914227f",
+    "sha256": "54105dcd723e71b19263afc8f449a7d77b78cec27148f13603f33be7727e6b6b"
+  },
+  "what_this_does_not_establish": [
+    "No theorem, prize, lemma_closed flag, LANDING_CLAIMS or PROOF_INDEX disposition is touched.",
+    "A matching byte identity is custody, not correctness, currentness or acceptance.",
+    "This record does not claim the catalog is current or that any bound is verified."
+  ],
+  "what_this_is": "A byte-identity transition record. research_query.py stopped being the canonical implementation and became a compatibility wrapper when the canonical code moved to src/universal_law_query/. Its bytes therefore changed. This file records the old and new identities and what each downstream consumer does, so the change is auditable instead of silent. It records no mathematics and moves no claim, prize, lemma or theorem status.",
+  "why_wrapper_must_export_those": "trial/federation/test_federation.py does `sys.path.insert(0, ROOT/'query-')` then `import research_query as q` and calls q.load_catalog, q.lookup, q.verify and catches q.CatalogError. Those four names are a cross-repository interface, not an internal detail.",
+  "wrapper_must_export": [
+    "CatalogError",
+    "load_catalog",
+    "lookup",
+    "verify"
+  ]
+}
