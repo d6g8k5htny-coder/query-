@@ -36,28 +36,32 @@ def fetch_raw(repository:str,ref:str,path:str,max_bytes:int)->bytes:
 
 def fetch(row:dict)->bytes:return fetch_raw(row['repository'],row['commit'],row['path'],row['bytes'])
 
-def check_math_tip_drift(root:Path|None=None)->dict:
+def check_math_tip_drift(root:Path|None=None, *, fetch_raw_fn=None)->dict:
+    fetch_raw_fn=fetch_raw if fetch_raw_fn is None else fetch_raw_fn
     root=REPO_ROOT if root is None else Path(root)
     bundle_path=root/'portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json'
     if not bundle_path.is_file(): return {'checked':[],'drifted':[],'math_tip_recorded':None}
     data=json.loads(bundle_path.read_text());drifted=[];checked=[]
     for row in data['artifacts']:
         validate_row(row)
-        try: tip_raw=fetch_raw(row['repository'],'main',row['path'],10000000)
+        try: tip_raw=fetch_raw_fn(row['repository'],'main',row['path'],10000000)
         except urllib.error.URLError as error: raise SystemExit('REFUSED: tip fetch failed for '+row['key']+': '+str(error)) from error
         tip_digest=hashlib.sha256(tip_raw).hexdigest();checked.append(row['key'])
         if len(tip_raw)!=row['bytes'] or tip_digest!=row['sha256']:
             drifted.append({'key':row['key'],'stub_bytes':row['bytes'],'tip_bytes':len(tip_raw),'stub_sha256':row['sha256'],'tip_sha256':tip_digest})
     return {'checked':checked,'drifted':drifted,'math_tip_recorded':data.get('math_tip'),'meaning':'tip drift vs portable stubs only; not catalog land or theorem acceptance'}
 
-def main(argv=None)->int:
+def main(argv=None, *, load_candidates_fn=None, fetch_fn=None, check_tip_fn=None)->int:
+    load_candidates_fn=load_candidates if load_candidates_fn is None else load_candidates_fn
+    fetch_fn=fetch if fetch_fn is None else fetch_fn
+    check_tip_fn=check_math_tip_drift if check_tip_fn is None else check_tip_fn
     parser=argparse.ArgumentParser(description='Verify portable candidate stubs against exact public GitHub raw bytes.')
     parser.add_argument('--check-math-tip',action='store_true');args=parser.parse_args(sys.argv[1:] if argv is None else argv)
     if os.environ.get('QUERY_STUB_VERIFY','1')=='0': print('SKIPPED_STUB_VERIFY');return 0
     checked=[]
-    for row in load_candidates():
+    for row in load_candidates_fn():
         validate_row(row)
-        try: raw=fetch(row)
+        try: raw=fetch_fn(row)
         except urllib.error.URLError as error:
             print('REFUSED: fetch failed for '+row['key']+': '+str(error),file=sys.stderr);return 2
         if len(raw)!=row['bytes'] or hashlib.sha256(raw).hexdigest()!=row['sha256']:
@@ -65,7 +69,7 @@ def main(argv=None)->int:
         checked.append(row['key'])
     report={'verified':checked,'meaning':'exact public bytes at declared commits only; not catalog land or theorem acceptance'}
     if args.check_math_tip:
-        tip=check_math_tip_drift();report['math_tip_check']=tip
+        tip=check_tip_fn();report['math_tip_check']=tip
         if tip['drifted']:
             print(json.dumps(report,indent=2,sort_keys=True));print('REFUSED: TIP_DRIFT '+','.join(x['key'] for x in tip['drifted']),file=sys.stderr);return 2
     print(json.dumps(report,indent=2,sort_keys=True));return 0
