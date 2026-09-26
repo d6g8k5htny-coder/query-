@@ -1,5 +1,0 @@
-Metadata-Version: 2.1
-Name: universal-law-query
-Version: 0.1.0
-Summary: Read-only exact-source lookup and local byte verification for the Universal Law research workspace
-Requires-Python: >=3.11
