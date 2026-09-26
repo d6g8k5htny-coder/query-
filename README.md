@@ -11,6 +11,14 @@ python -m pip install --no-deps --no-build-isolation .
 universal-law-query --registry ../meta-framework/registry.json --key side24-coefficient
 ```
 
+Clone/import from public source only (no private Drive required):
+
+```bash
+git clone https://github.com/d6g8k5htny-coder/query-.git
+cd query-
+python -B -S -c "import sys; sys.path.insert(0,'src'); import universal_law_query; print(universal_law_query.__name__)"
+```
+
 From an uninstalled checkout, the compatibility command is still:
 
 ```bash
@@ -18,6 +26,16 @@ python -B -S research_query.py --registry ../meta-framework/registry.json --key 
 ```
 
 The wrapper and package CLI are parity-tested for stdout, stderr, exit status, lookup, verification and refusal paths.
+
+## Pinned identities and non-theorem boundary
+
+- Portable pin sets are in:
+  - `portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`
+  - `portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`
+  - `portable/RN_FIXED_REMOTE_REPLAY_STUB.json`
+- `verify_portable_stubs.py` enforces exact byte identity (`commit`, `path`, `bytes`, `sha256`) for public artifacts.
+- `--check-math-tip` reports TIP_DRIFT when current `Math-` default-tip bytes diverge from the pinned downstream-gate stubs.
+- Scientific effect is **NONE**: this repository does not change theorem status, prize disposition, `lemma_closed`, or acceptance registers.
 
 ## Topic → exact lookup key
 
