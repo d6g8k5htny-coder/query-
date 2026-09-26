@@ -66,6 +66,7 @@
     "Math- #22/#28 MERGED (rn-fixed-annulus-* / rn-thin-tube / rn-annulus-bridge-*); do not re-catalog from query-",
     "Math- #33/#36/#37/#48 MERGED (contact + landing-claims); do not re-catalog from query-",
     "Math- #25 MERGED (collision-mechanism-*); do not re-catalog from query-",
+    "Math- #50/#51 MERGED (lifetime-parent-* / downstream-gate-fc10-*); do not re-catalog from query-",
     "Math- #9/#41 CLOSED/BLOCKED INPUT; #20/#30-style fingerprint maps — do not harden",
     "Math- D5: Hermite+axial+annulus+contact landed; landing-claims strengthen #90 but do not close it",
     "Math- #16 OPEN @ 32b80ee — bounded reciprocal review assigned to meta agent bc-01a0d95b-5971 (not query-); do not edit candidate",
@@ -142,15 +143,27 @@
       "merge_commit": "232a182fee316d2bb428b7351b5c5caae3b8cc2e",
       "role": "landing-claim integrity; strengthens #90 but does not close"
     },
+    "math_pr50": {
+      "state": "MERGED",
+      "merge_commit": "2d42fd165a948092b6f2296d5f580733c5a6f05c",
+      "catalog_prefix": "lifetime-parent-*",
+      "note": "Already cataloged on meta#6; query- does not re-offer"
+    },
+    "math_pr51": {
+      "state": "MERGED",
+      "merge_commit": "703e94744a7205d438c2df690ca62d5688812480",
+      "catalog_prefix": "downstream-gate-fc10-*",
+      "note": "FC-10 graph keys cataloged on meta; candidate bundle remains pr15* tip pins; do not re-offer"
+    },
     "main_pr98": "OPEN; tip E6 unsettled; #90 still OPEN; not query- lane",
     "scientific_effect": "NONE"
   },
   "meta_tip_observed_not_chased": {
     "meta_pr": 6,
-    "head": "5a39bdfa4ea4373789d9aa845e2beda0a84ed46a",
-    "dispatch": "v27",
-    "note": "PR25 collision-mechanism merged+cataloged; stop_catalog_only_churn — verified_against stays c1046a5/96; tip_drift=[] at Math 53320cb",
-    "checked_at_utc": "2026-09-26T00:31:30Z"
+    "head": "d94d447fb027aa1a2311a9f51fb344eefc9e6d2f",
+    "dispatch": "v28",
+    "note": "PR50/PR51 merged+cataloged; stop_catalog_only_churn — verified_against stays c1046a5/96; tip_drift=[] at Math 703e947",
+    "checked_at_utc": "2026-09-26T00:48:30Z"
   },
   "stale_consumer_scan_20260925T1949Z": {
     "meaning": "exact paths still naming CLOSED Math-#14 or intermediate/known-bad Math-#9 tip fingerprints; not catalog authority",
@@ -338,5 +351,13 @@
       "standing rule: TIP_DRIFT refresh allowed under stop_catalog_only_churn"
     ],
     "decision": "Refresh CANDIDATE_DOWNSTREAM_GATE_STUBS pr15* to tip 703e947; update PEER_HANDOFF math_tip; do not invent new catalog keys; three replays still post-merge-only"
+  },
+  "collective_decision_20260926T0048Z": {
+    "sources": [
+      "meta-framework#6 synchronize → d94d447 dispatch v28: Math-#50/#51 MERGED (lifetime-parent / fc10)",
+      "Math tip 703e947; verify_portable_stubs tip_drift=[] after prior TIP_DRIFT refresh",
+      "stop_catalog_only_churn=true"
+    ],
+    "decision": "Record PR50/PR51 merge; do not invent lifetime-parent/fc10 stubs; keep pr15* tip pins; three replays still post-merge-only"
   }
 }
