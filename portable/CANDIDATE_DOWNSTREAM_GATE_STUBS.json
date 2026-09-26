@@ -14,7 +14,7 @@
       "scope": "Engineering fail-closed promotion control for main #90/#86; scientific effect NONE",
       "sha256": "574ed537cf8992bb3f86fae109e18336e51c18ea814e69451d39901b94fea80a",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 2218,
@@ -25,7 +25,7 @@
       "scope": "Claim/non-claim boundary for the hard-gate package; not analytic acceptance",
       "sha256": "c7b5bb0ec34f53395b96ae24edceb3b5b0a3451caf7df6205b924d40e9e9fd84",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 26557,
@@ -36,7 +36,7 @@
       "scope": "Fail-closed promotion and reverse-impact checker; stdlib only",
       "sha256": "1954723d143a3d68cbf3834b2c18e4198fd89ba49145f012bdc425c80050d052",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 18920,
@@ -47,7 +47,7 @@
       "scope": "Finite integrity controls and semantic mutations; not theorem review",
       "sha256": "24bf0ae39c3b36ff253ee7dbbb5c5b347ab8c528c88d2d9cf578ef6b3ab04e51",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 6509,
@@ -58,7 +58,7 @@
       "scope": "Reproducible gate output; lemma_closed false; illegal promotions refused",
       "sha256": "2fd874894334f65b57bbab438d093c7dee37395e8352bdd49ee04410da9240da",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 7517,
@@ -69,7 +69,7 @@
       "scope": "Same-author gate replay runner; new output directory required",
       "sha256": "2f71b34d5a241402e26c0e0046fece88e1c9f2ea07c4920735b0a3d1306fba6c",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     },
     {
       "bytes": 15375,
@@ -80,7 +80,7 @@
       "scope": "Machine dependency graph D0-D7 over Math candidates and historical RN walls",
       "sha256": "065e6a756060097bcef35055cbf2aa099905f615e82b2942770b142cf4bf2f8f",
       "visibility": "public",
-      "note": "Aligned to meta-framework#6 tip pin baca69c; candidate/historical identity for peers. Not acceptance."
+      "note": "Aligned to meta-framework#6 tip pin 10e1f191; candidate/historical identity for peers. Not acceptance."
     }
   ]
 }
