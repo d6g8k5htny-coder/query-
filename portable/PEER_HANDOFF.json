@@ -330,5 +330,13 @@
       "stop_catalog_only_churn=true"
     ],
     "decision": "Record PR25 merge; do not invent collision-mechanism stubs; do not chase verified_against; three replays still post-merge-only"
+  },
+  "collective_decision_20260926T0046Z": {
+    "sources": [
+      "Math tip 53320cb→703e947 (Map reviewed fixed-annulus D5 scope without global status transfer)",
+      "verify_portable_stubs REFUSED TIP_DRIFT on pr15-code/tests/output/source-files",
+      "standing rule: TIP_DRIFT refresh allowed under stop_catalog_only_churn"
+    ],
+    "decision": "Refresh CANDIDATE_DOWNSTREAM_GATE_STUBS pr15* to tip 703e947; update PEER_HANDOFF math_tip; do not invent new catalog keys; three replays still post-merge-only"
   }
 }

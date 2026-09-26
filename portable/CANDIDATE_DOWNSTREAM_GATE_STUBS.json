@@ -1,98 +1,98 @@
 {
   "scientific_status_authority": false,
-  "meaning": "candidate stubs for merged Math- PR15 tip identities (downstream-hard-gate-pr15*); frozen baca69c keys stay on meta catalog; not catalog authority",
-  "math_tip": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+  "meaning": "candidate stubs for Math tip after TIP_DRIFT on pr15* paths; frozen baca69c and historical ac868b2 catalog keys may remain on meta; not catalog authority",
+  "math_tip": "703e94744a7205d438c2df690ca62d5688812480",
   "aligned_to_meta_pr": 6,
-  "aligned_to_meta_head": "9c2779f4e96d078f8028b5e00367c044f724108d",
-  "frozen_gate_keys_on_meta": "downstream-hard-gate* @ baca69c (do not overwrite)",
+  "aligned_to_meta_head": "5a39bdfa4ea4373789d9aa845e2beda0a84ed46a",
+  "frozen_gate_keys_on_meta": "downstream-hard-gate* @ baca69c; historical downstream-hard-gate-pr15* @ ac868b2 may lag tip",
   "artifacts": [
     {
       "bytes": 3559,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15",
       "path": "frontiers/downstream_gate_20260925/README.md",
       "repository": "Math-",
       "scope": "Merged PR15 source-bound transition gate README; scientific effect NONE; #90 still OPEN",
       "sha256": "574ed537cf8992bb3f86fae109e18336e51c18ea814e69451d39901b94fea80a",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
-      "bytes": 26247,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "bytes": 26557,
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-code",
       "path": "frontiers/downstream_gate_20260925/hard_gate.py",
       "repository": "Math-",
       "scope": "Merged PR15 hard_gate.py with complete-record/edge transition fail-closed controls",
-      "sha256": "af0dabff98e050abed31fa838da210c40c230e94268fdfd568cf2de2024cfa04",
+      "sha256": "1954723d143a3d68cbf3834b2c18e4198fd89ba49145f012bdc425c80050d052",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
-      "bytes": 18595,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "bytes": 18920,
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-tests",
       "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
       "repository": "Math-",
       "scope": "Merged PR15 hard_gate tests (67-control suite lineage); not theorem review",
-      "sha256": "84ea94bb31ed0e8a3e022d6273ecec823bb6acc2703edc6f6a641492963f882d",
+      "sha256": "24bf0ae39c3b36ff253ee7dbbb5c5b347ab8c528c88d2d9cf578ef6b3ab04e51",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
-      "bytes": 5909,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "bytes": 6509,
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-output",
       "path": "frontiers/downstream_gate_20260925/RESULTS.json",
       "repository": "Math-",
       "scope": "Merged PR15 gate RESULTS; lemma_closed false",
-      "sha256": "25eb3ef09f7b71248ddc15ee7c6b0a0e417ceea11da615c98a03a6ab39545a35",
+      "sha256": "2fd874894334f65b57bbab438d093c7dee37395e8352bdd49ee04410da9240da",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
       "bytes": 7517,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-replay",
       "path": "frontiers/downstream_gate_20260925/run_validation.py",
       "repository": "Math-",
       "scope": "Merged PR15 validation/replay runner",
       "sha256": "2f71b34d5a241402e26c0e0046fece88e1c9f2ea07c4920735b0a3d1306fba6c",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
       "bytes": 5581,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-git-audit",
       "path": "frontiers/downstream_gate_20260925/git_transition_audit.py",
       "repository": "Math-",
       "scope": "Merged PR15 immutable Git before/after source-object audit helper",
       "sha256": "393d407c2e35d2b6f3230f5a60a9aaa7691172544d3b59f72cc880c81be20701",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
       "bytes": 8006,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-transition-tests",
       "path": "frontiers/downstream_gate_20260925/test_transition_contract.py",
       "repository": "Math-",
       "scope": "Merged PR15 transition-contract tests for git before/after inputs",
       "sha256": "d9851a322274fea01e7f74db283ed70ea798bc6a35423f66c7cfddad7d92c829",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     },
     {
       "bytes": 1758,
-      "commit": "ac868b2b31d0995b75dd697f19d4c94735179a38",
+      "commit": "703e94744a7205d438c2df690ca62d5688812480",
       "key": "downstream-hard-gate-pr15-source-files",
       "path": "frontiers/downstream_gate_20260925/SOURCE_FILES.json",
       "repository": "Math-",
       "scope": "Merged PR15 exact source-file pin manifest",
-      "sha256": "c70d114e2275db39fcbf999dc909fb4bcb13657878bfecd8072330a2ab37f544",
+      "sha256": "ab0aafb30290a48980418db60569197b7d9663e0dd69375a121c9d0150c41e90",
       "visibility": "public",
-      "note": "Matches meta#6 catalog key at tip ac868b2 (PR15 merged). Frozen baca69c keys remain separate on meta. Candidate/historical for peers; not acceptance."
+      "note": "Aligned to Math- tip 703e947 after TIP_DRIFT (annulus D5 scope map). Meta may still pin older pr15* @ ac868b2 until re-catalog. Candidate only; not acceptance."
     }
   ]
 }
