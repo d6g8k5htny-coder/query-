@@ -27,9 +27,9 @@
     "meta_head": "c1046a539964d562b071a189cd37a76102789b25",
     "meta_pr_state": "OPEN",
     "meta_catalog_count": 96,
-    "math_tip": "53320cbc8a4d15b9f675885a1d7760656bcc3b4f",
+    "math_tip": "703e94744a7205d438c2df690ca62d5688812480",
     "tip_drift": [],
-    "checked_at_utc": "2026-09-26T00:31:30Z"
+    "checked_at_utc": "2026-09-26T00:46:30Z"
   },
   "gate_stubs_vs_meta6": {
     "bundle": "portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json",
@@ -44,7 +44,7 @@
       "downstream-hard-gate-pr15-transition-tests",
       "downstream-hard-gate-pr15-source-files"
     ],
-    "note": "Math-#15 MERGED @ ac868b2; meta catalogs tip under downstream-hard-gate-pr15* and keeps frozen downstream-hard-gate* @ baca69c. Candidate bundle tracks pr15* tip identities only (TIP_DRIFT-safe)."
+    "note": "TIP_DRIFT refresh to Math tip 703e947 (annulus D5 scope map). code/tests/output/source-files changed; README/replay/git-audit/transition-tests unchanged. Meta historical pr15* @ ac868b2 may lag until re-catalog."
   },
   "still_pending_after_meta6": [
     "rn-fixed-remote-window-replay",
