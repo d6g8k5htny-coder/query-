@@ -1,0 +1,2 @@
+[console_scripts]
+universal-law-query = universal_law_query.cli:main
