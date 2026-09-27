@@ -53,7 +53,7 @@ The helper refuses sandbox paths, symlinks, mutable refs and non-public reposito
 - [`portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json`](portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json) — uncataloged Math replay runners
 - [`portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json`](portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json) — published fail-closed downstream hard-gate package (eng integrity; scientific effect none; refresh when Math- tip changes gate bytes)
 
-Do not race meta-framework draft [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) (Drive parents / mesoscopic notes). Live peer coordination status for writable agents is in [`portable/PEER_HANDOFF.json`](portable/PEER_HANDOFF.json).
+meta-framework [#6](https://github.com/d6g8k5htny-coder/meta-framework/pull/6) is MERGED; the three staged public replay stubs in `portable/CANDIDATE_PUBLIC_REPLAY_STUBS.json` are offered to writable meta peers (not yet cataloged). Live peer coordination status is in [`portable/PEER_HANDOFF.json`](portable/PEER_HANDOFF.json).
 
 The lookup tool rejects duplicate keys, malformed identities, mutable refs, path traversal, symlink payloads and entries marked private. The public catalog is manually source-reviewed; these checks do not independently discover actual GitHub visibility or prevent a malicious catalog from lying. Private `sandbox` artifacts are excluded from this route, not copied or fetched.
 
