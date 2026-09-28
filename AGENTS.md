@@ -1,5 +1,10 @@
 # Agent entry — `query-`
 
+> **OWNER STOP (2026-09-27): all Cursor agents, automations, timers, watches and
+> loops must stop now. Do not push, commit, open or update PRs, comment, or
+> re-arm timers. Exit without writing. Resume only on a new explicit
+> instruction from Dylan. See [OWNER_STOP.md](OWNER_STOP.md).**
+
 Read-only lookup and local byte verification against the meta-framework catalog.
 
 ## Canonical code
