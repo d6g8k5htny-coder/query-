@@ -2,9 +2,9 @@
 
 # Query — exact-source research lookup
 
-The canonical implementation now lives in `src/universal_law_query/`. The historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
+Look up exactly where a published Universal Law research artifact lives and verify that local bytes match its pinned source identity. The package is standard-library at runtime, read-only, and has **no scientific-status authority**: it reports commit/path/hash/scope metadata from the curated `meta-framework` catalog and does not determine theorem acceptance.
 
-The package is standard-library at runtime, read-only, and has **no scientific-status authority**. It queries the curated catalog in `meta-framework`, reports exact commit/path/hash/scope metadata, and optionally verifies local bytes. It does not determine theorem acceptance.
+The canonical implementation lives in `src/universal_law_query/`. Historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
 
 ## Source package
 
@@ -73,6 +73,6 @@ Portable candidates remain under `portable/`; the verifier checks exact public b
 
 ## Source publication dry run
 
-`scripts/build_source_release.py` builds a deterministic package-scoped archive with normalized metadata and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`. The builder refuses dirty trees and outputs inside the repository. Because this repository currently has no `LICENSE` file, the generated manifest records `release_eligible: false`; no public release is authorized by the dry run.
+`scripts/build_source_release.py` builds a deterministic package-scoped archive with normalized metadata and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`. The builder refuses dirty trees and outputs inside the repository. The repository uses the MIT license in [`LICENSE`](LICENSE). Release eligibility is still determined by the builder's complete source-manifest checks; a successful dry run is not theorem acceptance.
 
 Cross-repository integration controls remain in `trial`. The curated public artifact routing authority remains `meta-framework/registry.json`.
