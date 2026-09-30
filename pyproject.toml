@@ -1,13 +1,23 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-law-query"
 version = "0.1.0"
 description = "Read-only exact-source lookup and local byte verification for the Universal Law research workspace"
+readme = "README.md"
+authors = [{name = "Dylan Roy"}]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = []
+
+[project.urls]
+Homepage = "https://d6g8k5htny-coder.github.io/main/site/"
+Documentation = "https://github.com/d6g8k5htny-coder/query-#readme"
+Source = "https://github.com/d6g8k5htny-coder/query-"
+Issues = "https://github.com/d6g8k5htny-coder/query-/issues"
 
 [project.scripts]
 universal-law-query = "universal_law_query.cli:main"

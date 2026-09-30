@@ -2,7 +2,7 @@ from __future__ import annotations
 import gzip,hashlib,io,json,subprocess,tarfile,tomllib
 from pathlib import Path
 
-STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE')
+STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE','CITATION.cff','SUPPORT.md','SECURITY.md','MANIFEST.in')
 TREE_ROOTS=('src','tests')
 
 def _git(root:Path,*args:str)->str:
