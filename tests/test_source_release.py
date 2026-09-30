@@ -19,6 +19,28 @@ class SourceRelease(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base=Path(td);repo=self.make_repo(base);(repo/'.gitignore').write_text('src/ignored_secret.py\n');subprocess.run(['git','add','.gitignore'],cwd=repo,check=True);subprocess.run(['git','commit','-qm','ignore'],cwd=repo,check=True);(repo/'src/ignored_secret.py').write_text('SECRET');out=base/'x.tar.gz';build_source_archive(repo,out,1700000000)
             with tarfile.open(out,'r:gz') as tf:self.assertNotIn('src/ignored_secret.py',tf.getnames())
+    def test_archive_retains_public_metadata_without_admitting_other_root_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            repo = self.make_repo(base)
+            public_files = {
+                'CITATION.cff': b'cff-version: 1.2.0\n',
+                'SUPPORT.md': b'Public support routes.\n',
+                'SECURITY.md': b'Security reporting routes.\n',
+                'MANIFEST.in': b'include CITATION.cff SUPPORT.md SECURITY.md\n',
+            }
+            for name, content in public_files.items():
+                (repo / name).write_bytes(content)
+            (repo / 'private-notes.md').write_text('Do not distribute.\n')
+            subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+            subprocess.run(['git', 'commit', '-qm', 'metadata fixture'], cwd=repo, check=True)
+            out = base / 'source.tar.gz'
+            build_source_archive(repo, out, 1700000000)
+            with tarfile.open(out, 'r:gz') as tf:
+                for name, content in public_files.items():
+                    self.assertIn(name, tf.getnames())
+                    self.assertEqual(tf.extractfile(name).read(), content)
+                self.assertNotIn('private-notes.md', tf.getnames())
     def test_symlink_license_is_refused(self):
         with tempfile.TemporaryDirectory() as td:
             base=Path(td);repo=self.make_repo(base);outside=base/'outside';outside.write_text('fake');(repo/'LICENSE').symlink_to(outside);subprocess.run(['git','add','LICENSE'],cwd=repo,check=True);subprocess.run(['git','commit','-qm','license'],cwd=repo,check=True)

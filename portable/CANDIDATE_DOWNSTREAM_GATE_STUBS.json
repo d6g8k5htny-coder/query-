@@ -1,86 +1,86 @@
 {
   "scientific_status_authority": false,
-  "meaning": "candidate stubs checked at the recorded Math tip; aligned_to_meta fields retain prior catalog-alignment provenance, not a new catalog update; not catalog authority",
-  "math_tip": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+  "meaning": "Current portable candidate identities at the recorded Math snapshot; aligned_to_meta fields are historical catalog provenance only. See DOWNSTREAM_GATE_SUCCESSOR_20260930.md. Not catalog authority or scientific acceptance.",
+  "math_tip": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
   "aligned_to_meta_pr": 6,
   "aligned_to_meta_head": "64f2eec3ea8d6cef325b0438323fd64878f8815d",
   "artifacts": [
     {
-      "bytes": 3559,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "bytes": 4025,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate",
       "path": "frontiers/downstream_gate_20260925/README.md",
       "repository": "Math-",
       "scope": "Engineering fail-closed promotion control for main #90/#86; scientific effect NONE",
-      "sha256": "574ed537cf8992bb3f86fae109e18336e51c18ea814e69451d39901b94fea80a",
+      "sha256": "13fc1accebebd6017f34b0e5473bf6338f2604948c25a002051b5f0620fc327a",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 2218,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-scope",
       "path": "frontiers/downstream_gate_20260925/SCOPE.md",
       "repository": "Math-",
       "scope": "Claim/non-claim boundary for the hard-gate package; not analytic acceptance",
       "sha256": "c7b5bb0ec34f53395b96ae24edceb3b5b0a3451caf7df6205b924d40e9e9fd84",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Scope bytes unchanged from preserved predecessor; commit identifies the same snapshot as the other rows. No new catalog integration or acceptance."
     },
     {
-      "bytes": 26557,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "bytes": 26735,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-code",
       "path": "frontiers/downstream_gate_20260925/hard_gate.py",
       "repository": "Math-",
       "scope": "Fail-closed promotion and reverse-impact checker; stdlib only",
-      "sha256": "1954723d143a3d68cbf3834b2c18e4198fd89ba49145f012bdc425c80050d052",
+      "sha256": "a78f3e25f3b0cfe113e618a4c31a7a25d7f22af638c46dec1ecba221fa333ac8",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
-      "bytes": 18920,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "bytes": 23161,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-tests",
       "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
       "repository": "Math-",
       "scope": "Finite integrity controls and semantic mutations; not theorem review",
-      "sha256": "24bf0ae39c3b36ff253ee7dbbb5c5b347ab8c528c88d2d9cf578ef6b3ab04e51",
+      "sha256": "c444e6c347da680aff5bef7f43900e45d52a0cc45081fb7b4def45266d97aac1",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
-      "bytes": 6509,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "bytes": 7095,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-output",
       "path": "frontiers/downstream_gate_20260925/RESULTS.json",
       "repository": "Math-",
       "scope": "Reproducible gate output; lemma_closed false; illegal promotions refused",
-      "sha256": "2fd874894334f65b57bbab438d093c7dee37395e8352bdd49ee04410da9240da",
+      "sha256": "0b95624e08e3eff7ca386a68534960b89ef63b10312ad5120159c0e29961264a",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 7517,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-replay",
       "path": "frontiers/downstream_gate_20260925/run_validation.py",
       "repository": "Math-",
       "scope": "Same-author gate replay runner; new output directory required",
-      "sha256": "2f71b34d5a241402e26c0e0046fece88e1c9f2ea07c4920735b0a3d1306fba6c",
+      "sha256": "276e69c2b29e012c386db615ed64e24badf3726a9f122fd9d77776a9c4f00711",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
-      "bytes": 15375,
-      "commit": "d6628da09384728992dcbe6e921cc28ba85aebb0",
+      "bytes": 38753,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-graph",
       "path": "frontiers/downstream_gate_20260925/GRAPH.json",
       "repository": "Math-",
       "scope": "Machine dependency graph D0-D7 over Math candidates and historical RN walls",
-      "sha256": "065e6a756060097bcef35055cbf2aa099905f615e82b2942770b142cf4bf2f8f",
+      "sha256": "8822e9618678321a342d69cd0b8ae6552de1b5d578c331de5072b2892ee9dd09",
       "visibility": "public",
-      "note": "Identity-only Math tip refresh after public custody import and navigation; bytes unchanged from the recorded meta-framework#6 alignment. Not acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     }
   ]
 }

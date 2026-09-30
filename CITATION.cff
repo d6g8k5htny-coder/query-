@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: >-
+  Cite this software with the full commit you used. Cite a retrieved
+  mathematical artifact separately using its own source identity and scope.
+type: software
+title: "Query: exact-source research lookup"
+abstract: >-
+  Read-only lookup of curated research source identities and local byte
+  verification. This tool reports catalog metadata; it does not establish
+  mathematical claims or determine scientific acceptance.
+authors:
+  - family-names: Roy
+    given-names: Dylan
+    orcid: https://orcid.org/0009-0003-7329-7001
+repository-code: https://github.com/d6g8k5htny-coder/query-
+url: https://d6g8k5htny-coder.github.io/main/site/
+license: MIT
+keywords:
+  - reproducible research
+  - source provenance
+  - byte verification
