@@ -478,6 +478,48 @@ class RepositoryBinding(SyntheticCheckout):
         self.assertEqual(self.build(False, **setting)['commit'], self.head)
 
 
+class RecordedCommit(SyntheticCheckout):
+    """The manifest's commit field holds a commit ID (query-#30 finding 4213083108)."""
+
+    def annotated_tag(self):
+        self.git('tag', '-a', 'v1', '-m', 'annotated tag')
+        tag = self.git('rev-parse', 'refs/tags/v1')
+        self.assertEqual(self.git('cat-file', '-t', tag), 'tag')
+        self.assertNotEqual(tag, self.head)
+        return tag
+
+    def assert_records_the_tagged_commit(self, tag):
+        # Git peels the tag for status, so the checkout still looks ordinary and clean.
+        self.assertEqual(self.git('rev-parse', 'HEAD'), tag)
+        self.assertEqual(self.git('status', '--porcelain'), '')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                out = self.base / ('out-%d' % strict) / 'archive.tar.gz'
+                self.assertEqual(self.build(strict, out)['commit'], self.head)
+                self.assertEqual(self.recorded_commits(out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_symbolic_head_naming_an_annotated_tag_records_the_tagged_commit(self):
+        tag = self.annotated_tag()
+        self.git('symbolic-ref', 'HEAD', 'refs/tags/v1')
+        self.assert_records_the_tagged_commit(tag)
+
+    def test_head_file_holding_a_tag_id_records_the_tagged_commit(self):
+        tag = self.annotated_tag()
+        # update-ref refuses to write a tag ID to HEAD, but Git reads one that is there.
+        (self.repo / '.git' / 'HEAD').write_text(tag + '\n')
+        self.assert_records_the_tagged_commit(tag)
+
+    def test_head_leading_to_no_commit_is_refused(self):
+        self.git('tag', '-a', 'tree-tag', '-m', 'a tree, not a commit', self.head + '^{tree}')
+        self.git('symbolic-ref', 'HEAD', 'refs/tags/tree-tag')
+        self.assertEqual(self.git('status', '--porcelain'), '')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, '^HEAD does not name a commit$'):
+                    self.build(strict)
+                self.assertFalse(self.out.parent.exists())
+
+
 # LICENSE is the one optional member; every other curated name is mandatory.
 MANDATORY_PAYLOADS = ARCHIVE_PAYLOADS - {'LICENSE'}
 

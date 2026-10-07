@@ -80,6 +80,14 @@ def _check_commit_entries(root:Path,commit:str,names:list[str])->None:
 def _committed_bytes(root:Path,commit:str,rel:str)->bytes:
     return _git_identity(root,'cat-file','blob',commit+':'+rel)
 
+def _head_commit(root:Path)->str:
+    # `rev-parse HEAD` prints whatever HEAD names. That can be an annotated tag
+    # object, which status, ls-tree and cat-file all peel without a word, so a
+    # tag ID would be recorded as the commit. Ask for the commit itself, and
+    # refuse a HEAD that does not lead to one.
+    try: return _git_identity(root,'rev-parse','--verify','--quiet','HEAD^{commit}').decode().strip()
+    except ValueError: raise ValueError('HEAD does not name a commit') from None
+
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
 
@@ -88,7 +96,7 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     if output.is_relative_to(root): raise ValueError('output must be outside repository')
     if not isinstance(source_date_epoch,int) or source_date_epoch<0: raise ValueError('invalid SOURCE_DATE_EPOCH')
     if _git(root,'status','--porcelain'): raise ValueError('working tree must be clean')
-    commit=_git(root,'rev-parse','HEAD')
+    commit=_head_commit(root)
     if len(commit)!=40: raise ValueError('exact commit required')
     # Strict mode selects once and validates membership before project metadata
     # is read, so a missing pyproject.toml is reported as a member. It then
