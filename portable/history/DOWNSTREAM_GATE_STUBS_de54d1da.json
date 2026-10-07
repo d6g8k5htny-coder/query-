@@ -1,86 +1,86 @@
 {
   "scientific_status_authority": false,
-  "meaning": "Current portable candidate identities at the recorded Math snapshot; aligned_to_meta fields are historical catalog provenance only. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. Not catalog authority or scientific acceptance.",
-  "math_tip": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+  "meaning": "Current portable candidate identities at the recorded Math snapshot; aligned_to_meta fields are historical catalog provenance only. See DOWNSTREAM_GATE_SUCCESSOR_20260930.md. Not catalog authority or scientific acceptance.",
+  "math_tip": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
   "aligned_to_meta_pr": 6,
   "aligned_to_meta_head": "64f2eec3ea8d6cef325b0438323fd64878f8815d",
   "artifacts": [
     {
       "bytes": 4025,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate",
       "path": "frontiers/downstream_gate_20260925/README.md",
       "repository": "Math-",
       "scope": "Engineering fail-closed promotion control for main #90/#86; scientific effect NONE",
       "sha256": "13fc1accebebd6017f34b0e5473bf6338f2604948c25a002051b5f0620fc327a",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 2218,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-scope",
       "path": "frontiers/downstream_gate_20260925/SCOPE.md",
       "repository": "Math-",
       "scope": "Claim/non-claim boundary for the hard-gate package; not analytic acceptance",
       "sha256": "c7b5bb0ec34f53395b96ae24edceb3b5b0a3451caf7df6205b924d40e9e9fd84",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Scope bytes unchanged from preserved predecessor; commit identifies the same snapshot as the other rows. No new catalog integration or acceptance."
     },
     {
       "bytes": 26735,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-code",
       "path": "frontiers/downstream_gate_20260925/hard_gate.py",
       "repository": "Math-",
       "scope": "Fail-closed promotion and reverse-impact checker; stdlib only",
       "sha256": "a78f3e25f3b0cfe113e618a4c31a7a25d7f22af638c46dec1ecba221fa333ac8",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 23161,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-tests",
       "path": "frontiers/downstream_gate_20260925/test_hard_gate.py",
       "repository": "Math-",
       "scope": "Finite integrity controls and semantic mutations; not theorem review",
       "sha256": "c444e6c347da680aff5bef7f43900e45d52a0cc45081fb7b4def45266d97aac1",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 7095,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-output",
       "path": "frontiers/downstream_gate_20260925/RESULTS.json",
       "repository": "Math-",
       "scope": "Reproducible gate output; lemma_closed false; illegal promotions refused",
       "sha256": "0b95624e08e3eff7ca386a68534960b89ef63b10312ad5120159c0e29961264a",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
-      "bytes": 10454,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "bytes": 7517,
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-replay",
       "path": "frontiers/downstream_gate_20260925/run_validation.py",
       "repository": "Math-",
       "scope": "Same-author gate replay runner; new output directory required",
-      "sha256": "ec1d3315b0c21f4608ab7b824f45d7d6e1041555f62e77feeec2bacaa8e5a9f5",
+      "sha256": "276e69c2b29e012c386db615ed64e24badf3726a9f122fd9d77776a9c4f00711",
       "visibility": "public",
-      "note": "Exact reviewed Math PR263 timeout-evidence successor; see DOWNSTREAM_GATE_SUCCESSOR_20261007.md. Prior catalog alignment is historical; no new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     },
     {
       "bytes": 38753,
-      "commit": "7d2f62500ad6effba2bbdf6f3b89b0826408dc4a",
+      "commit": "de54d1da2f6cdde59df3c34bb50ecd85c25ca333",
       "key": "downstream-hard-gate-graph",
       "path": "frontiers/downstream_gate_20260925/GRAPH.json",
       "repository": "Math-",
       "scope": "Machine dependency graph D0-D7 over Math candidates and historical RN walls",
       "sha256": "8822e9618678321a342d69cd0b8ae6552de1b5d578c331de5072b2892ee9dd09",
       "visibility": "public",
-      "note": "Bytes unchanged from the preserved de54d1da bundle; commit identifies the shared 2026-10-07 snapshot. See DOWNSTREAM_GATE_SUCCESSOR_20261007.md. No new catalog integration or acceptance."
+      "note": "Exact public snapshot after reviewed Math PR126/151 integrations; prior catalog alignment is historical. No new catalog integration or acceptance."
     }
   ]
 }
