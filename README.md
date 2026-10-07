@@ -27,6 +27,8 @@ python -B -S research_query.py --registry ../meta-framework/registry.json --key 
 The catalog supplies the pinned source identities. Record the catalog commit
 along with the query commit when reproducing a lookup.
 
+## Installation is a separate capability
+
 To install the command in your Python environment from this checkout:
 
 ```bash
@@ -69,7 +71,7 @@ The wrapper and package CLI are parity-tested for stdout, stderr, exit status, l
 
 Unknown keys are refused rather than guessed. Exact-byte verification rejects path traversal, symlink payloads, mutable refs and private catalog artifacts.
 
-## Local engineering controls
+## Full-checkout engineering controls
 
 ```bash
 python -B -S -m unittest -v test_research_query.py test_catalog_entry_helper.py test_verify_portable_stubs.py
@@ -78,7 +80,56 @@ python -B -S verify_portable_stubs.py
 python -B -S verify_portable_stubs.py --check-math-tip
 ```
 
-The older root tests remain as compatibility controls; package tests are the canonical implementation tests.
+These commands are for the full Git checkout. The older root tests remain as
+compatibility controls; package tests are the canonical implementation tests.
+Full discovery also runs the source-builder, dated peer-handoff and installation
+controls. It needs Git, the tracked checkout inputs, portable fixture JSON and
+already available pip/build tools; it is not the archive's stdlib-only subset.
+The real portable verification commands additionally need public network access.
+
+For an offline run of the existing installation control, first verify that pip,
+setuptools>=77.0.3 and wheel are already available, then set PIP_NO_INDEX=1 and
+PIP_DISABLE_PIP_VERSION_CHECK=1 for the checkout test commands. The control uses
+--no-deps, --no-build-isolation and a temporary local target. Missing build tools
+are a missing capability, not permission to download them during an offline run.
+
+## Extracted package archive: offline help and unit subset
+
+The custom source archive supports Python 3.11+ help and exactly five offline
+fixture-test modules (15 methods). Extract it outside the source checkout and
+run from that extracted directory; local symlink creation is needed by one
+refusal fixture. No catalog, installation or network is needed for these checks:
+
+```bash
+env -u PYTHONPATH -u PYTHONHOME -u PYTHONOPTIMIZE QUERY_STUB_VERIFY=1 python -B -S research_query.py --help
+env -u PYTHONPATH -u PYTHONHOME -u PYTHONOPTIMIZE QUERY_STUB_VERIFY=1 python -B -S -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Repeat with `-B -O -S` for an optimized outer runner. The selected tests keep
+their own normal `-B -S` child commands; an optimized outer run is not an
+optimized-child claim. QUERY_STUB_VERIFY=1 makes the positive mocked-fetch
+fixture run; the suite separately tests the deliberate skip switch. Synthetic
+`verified` results and the skip message are not live portable coverage.
+
+The explicit payload contains 11 public root files, the five package files
+and only these five test modules:
+`test_catalog.py`, `test_catalog_entry.py`, `test_cli.py`, `test_stub_verify.py`
+and `test_wrapper_parity.py`. Together they are 21 payloads, plus the generated
+SOURCE_MANIFEST.json and BUILD_INFO.json.
+
+The archive intentionally excludes the source builder, its tests, dated
+peer-handoff tests/data, installation tests, root compatibility tests and
+portable candidates. Do not use archive-wide discovery as evidence that the
+full checkout suite passed. The checkout-side archive regression verifies exact
+members and hashes, extracted product origins, source-path isolation and
+required-member omissions, including the initializer's package-root contract.
+
+Lookup with `--registry` needs a separately supplied public catalog; local byte
+verification also needs the catalog's corresponding workspace files. Record
+those inputs' identities separately. A portable-verifier wrapper without its
+candidate inputs does not establish coverage, even if it reports an empty
+verified list. Installation and installed-console verification remain separate
+from these offline source checks.
 
 ## Candidate public catalog stubs
 
@@ -88,6 +139,18 @@ Portable candidates remain under `portable/`; the verifier checks exact public b
 
 ## Source publication dry run
 
-`scripts/build_source_release.py` builds a deterministic package-scoped archive with normalized metadata and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`. It retains the citation, support, security, and license files; standard source distributions retain these public metadata files too. The builder refuses dirty trees and outputs inside the repository. The repository uses the MIT license in [`LICENSE`](LICENSE). Release eligibility is still determined by the builder's complete source-manifest checks; a successful dry run is not theorem acceptance.
+`scripts/build_source_release.py` is a checkout-only API: it needs a clean Git
+HEAD/index and tracked selected inputs, and its output must be outside the
+checkout. It builds the package archive described above with normalized metadata
+and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`, preserving tracked-only
+selection and public-file/symlink guards.
+
+The repository uses the MIT license in [`LICENSE`](LICENSE). The current
+`release_eligible` field means that LICENSE is present in the selected payload
+after the builder's guards; it does not mean extracted tests passed or authorize
+a release. A successful dry run is neither publication nor theorem acceptance.
+Standard setuptools source distributions are a separate producer: this custom
+allowlist does not define their membership or establish an offline-install or
+installed-console result.
 
 Cross-repository integration controls remain in `trial`. The curated public artifact routing authority remains `meta-framework/registry.json`.

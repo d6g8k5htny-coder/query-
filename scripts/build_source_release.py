@@ -3,7 +3,15 @@ import gzip,hashlib,io,json,subprocess,tarfile,tomllib
 from pathlib import Path
 
 STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE','CITATION.cff','SUPPORT.md','SECURITY.md','MANIFEST.in')
-TREE_ROOTS=('src','tests')
+# This custom archive is a package payload, not a repository snapshot or a
+# setuptools sdist. New source/test members need an explicit contract review.
+PACKAGE_NAMES=tuple('src/universal_law_query/'+name for name in (
+    '__init__.py','catalog.py','catalog_entry.py','cli.py','stub_verify.py',
+))
+OFFLINE_TEST_NAMES=tuple('tests/'+name for name in (
+    'test_catalog.py','test_catalog_entry.py','test_cli.py',
+    'test_stub_verify.py','test_wrapper_parity.py',
+))
 
 def _git(root:Path,*args:str)->str:
     p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False)
@@ -11,7 +19,7 @@ def _git(root:Path,*args:str)->str:
     return p.stdout.strip()
 
 def _include_files(root:Path)->list[Path]:
-    raw=_git(root,'ls-files','-z','--',*STATIC_NAMES,*TREE_ROOTS)
+    raw=_git(root,'ls-files','-z','--',*STATIC_NAMES,*PACKAGE_NAMES,*OFFLINE_TEST_NAMES)
     out=[]
     for reltext in (x for x in raw.split('\0') if x):
         rel=Path(reltext)
