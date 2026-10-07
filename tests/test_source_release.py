@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib,json,os,shutil,subprocess,tarfile,tempfile,unittest
+import hashlib,json,os,re,shutil,subprocess,tarfile,tempfile,unittest
 from unittest import mock
 from pathlib import Path
 import sys
@@ -218,7 +218,8 @@ class ExtractedPackageContract(unittest.TestCase):
             committed = subprocess.check_output(['git', '-C', str(self.repo), 'show', 'HEAD:' + name])
             self.assertEqual(committed, raw, name)
         self.archive = self.base / 'source.tar.gz'
-        self.result = build_source_archive(self.repo, self.archive, 1700000000)
+        # The complete-checkout contract opts into producer-side membership.
+        self.result = build_source_archive(self.repo, self.archive, 1700000000, strict_members=True)
         self.extracted = self.base / 'extracted'
         self.extracted.mkdir()
 
@@ -360,5 +361,207 @@ class ExtractedPackageContract(unittest.TestCase):
                         self.assertIn(target, negative.stderr)
                 print('OMISSION_CONTROL ' + json.dumps({'omitted': name, 'membership_rejected': True,
                       'probe_modes': [0, 1], 'namespace_submodule_survives': name.endswith('/__init__.py')}, sort_keys=True))
+
+
+# LICENSE is the one optional member; every other curated name is mandatory.
+MANDATORY_PAYLOADS = ARCHIVE_PAYLOADS - {'LICENSE'}
+
+
+class StrictMembers(unittest.TestCase):
+    """Producer-side membership for the complete package archive (query-#29).
+
+    The fixture holds synthetic text under every curated name, and nothing in it
+    is imported. Expected names come from the independent constants above, not
+    from the builder.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.repo = self.base / 'complete-checkout'
+        for name in sorted(ARCHIVE_PAYLOADS):
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('synthetic ' + name + '\n')
+        (self.repo / 'pyproject.toml').write_text('[project]\nname="universal-law-query"\nversion="0.1.0"\n')
+        self.git('init', '-q')
+        self.git('config', 'user.email', 'test@example.com')
+        self.git('config', 'user.name', 'test')
+        self.git('config', 'core.safecrlf', 'false')
+        self.commit('complete fixture')
+        # Its parent directory does not exist, so a refusal can be shown to create nothing.
+        self.out = self.base / 'out' / 'archive.tar.gz'
+
+    def git(self, *args):
+        return subprocess.check_output(['git', '-C', str(self.repo), *args], text=True).strip()
+
+    def commit(self, message):
+        self.git('add', '-A')
+        self.git('commit', '-qm', message)
+        self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def members(self, archive):
+        with tarfile.open(archive, 'r:gz') as tf:
+            return set(tf.getnames())
+
+    def refusal(self, missing, unexpected):
+        return re.escape('archive membership refused: missing=' + repr(missing) + '; unexpected=' + repr(unexpected)) + '$'
+
+    def assert_refused_before_output(self, pattern):
+        with self.assertRaisesRegex(ValueError, pattern):
+            build_source_archive(self.repo, self.out, 1700000000, strict_members=True)
+        self.assertFalse(self.out.parent.exists(), 'a refusal must not create the output directory')
+        existing = self.base / 'existing.tar.gz'
+        existing.write_bytes(b'sentinel')
+        with self.assertRaisesRegex(ValueError, pattern):
+            build_source_archive(self.repo, existing, 1700000000, strict_members=True)
+        self.assertEqual(existing.read_bytes(), b'sentinel', 'a refusal must not truncate an existing output')
+
+    def test_complete_checkout_strict_and_default_calls_agree(self):
+        default = self.base / 'default.tar.gz'
+        strict = self.base / 'strict.tar.gz'
+        result_default = build_source_archive(self.repo, default, 1700000000)
+        result_strict = build_source_archive(self.repo, strict, 1700000000, strict_members=True)
+        self.assertEqual(default.read_bytes(), strict.read_bytes())
+        self.assertEqual(result_default, result_strict)
+        self.assertEqual(self.members(strict), ARCHIVE_PAYLOADS | GENERATED_FILES)
+        self.assertEqual((result_strict['file_count'], result_strict['release_eligible']), (21, True))
+
+    def test_strict_without_license_is_complete_but_not_eligible(self):
+        self.git('rm', '-q', 'LICENSE')
+        self.commit('no license')
+        result = build_source_archive(self.repo, self.out, 1700000000, strict_members=True)
+        self.assertEqual(self.members(self.out), MANDATORY_PAYLOADS | GENERATED_FILES)
+        self.assertEqual((result['file_count'], result['release_eligible']), (20, False))
+
+    def test_strict_refuses_each_missing_mandatory_member_before_output(self):
+        self.assertEqual(len(MANDATORY_PAYLOADS), 20)
+        for name in sorted(MANDATORY_PAYLOADS):
+            with self.subTest(missing=name):
+                self.git('rm', '-q', name)
+                self.commit('delete ' + name)
+                try:
+                    self.assert_refused_before_output(self.refusal([name], []))
+                finally:
+                    self.git('reset', '-q', '--hard', 'HEAD~1')
+
+    def test_strict_refuses_directory_substitutes(self):
+        cases = (
+            ('SUPPORT.md', ['SUPPORT.md']),
+            ('src/universal_law_query/__init__.py', ['src/universal_law_query/__init__.py']),
+            # Optional when absent, never when something else sits under its name.
+            ('LICENSE', []),
+        )
+        for name, missing in cases:
+            with self.subTest(substituted=name):
+                self.git('rm', '-q', name)
+                (self.repo / name).mkdir()
+                (self.repo / name / 'replacement.txt').write_text('synthetic descendant\n')
+                self.commit('directory at ' + name)
+                try:
+                    self.assert_refused_before_output(self.refusal(missing, [name + '/replacement.txt']))
+                finally:
+                    self.git('reset', '-q', '--hard', 'HEAD~1')
+
+    def test_near_name_sibling_is_never_selected(self):
+        (self.repo / 'SUPPORT.md.extra').write_text('synthetic sibling\n')
+        self.commit('near-name sibling')
+        result = build_source_archive(self.repo, self.out, 1700000000, strict_members=True)
+        self.assertEqual(self.members(self.out), ARCHIVE_PAYLOADS | GENERATED_FILES)
+        self.assertEqual(result['file_count'], 21)
+
+    def test_strict_refuses_the_partial_legacy_fixture(self):
+        partial = SourceRelease().make_repo(self.base / 'partial')
+        with self.assertRaisesRegex(ValueError, r"^archive membership refused: missing=\[.*'CITATION\.cff'.*\]; unexpected=\[\]$"):
+            build_source_archive(partial, self.out, 1700000000, strict_members=True)
+        self.assertFalse(self.out.parent.exists())
+        # The five original tests keep reaching this fixture through the default call.
+        self.assertFalse(build_source_archive(partial, self.base / 'partial.tar.gz', 1700000000)['release_eligible'])
+
+    def test_strict_keeps_the_symlink_refusal_for_license(self):
+        outside = self.base / 'outside-license'
+        outside.write_text('not the license\n')
+        self.git('rm', '-q', 'LICENSE')
+        (self.repo / 'LICENSE').symlink_to(outside)
+        self.commit('license symlink')
+        with self.assertRaisesRegex(ValueError, r'^symlink payload refused: LICENSE$'):
+            build_source_archive(self.repo, self.out, 1700000000, strict_members=True)
+        self.assertFalse(self.out.parent.exists())
+
+    def test_default_call_stays_permissive_about_a_missing_member(self):
+        # Compatibility boundary recorded in query-#29: only strict_members=True refuses.
+        self.git('rm', '-q', 'SUPPORT.md')
+        self.commit('delete SUPPORT.md')
+        result = build_source_archive(self.repo, self.out, 1700000000)
+        self.assertEqual((result['file_count'], result['release_eligible']), (20, True))
+        self.assertNotIn('SUPPORT.md', self.members(self.out))
+
+    def test_strict_binds_payload_bytes_to_the_commit_despite_index_hints(self):
+        for hint in ('assume-unchanged', 'skip-worktree'):
+            with self.subTest(hint=hint):
+                self.git('update-index', '--' + hint, 'README.md')
+                try:
+                    # A hinted file whose bytes are still the commit's is a positive control.
+                    unchanged = self.base / ('hinted-' + hint + '.tar.gz')
+                    result = build_source_archive(self.repo, unchanged, 1700000000, strict_members=True)
+                    self.assertEqual(result['file_count'], 21)
+                    (self.repo / 'README.md').write_text('altered behind the index hint\n')
+                    self.assertEqual(self.git('status', '--porcelain'), '', 'the hint must hide the change from status')
+                    self.assert_refused_before_output(r'^payload differs from its committed blob: README\.md$')
+                finally:
+                    self.git('update-index', '--no-' + hint, 'README.md')
+                    self.git('checkout', '--', 'README.md')
+                self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def test_strict_refuses_bytes_changed_by_checkout_normalization(self):
+        # Deliberate choice: working bytes that are not the committed blob are refused, never normalized.
+        (self.repo / '.gitattributes').write_text('SUPPORT.md text eol=crlf\n')
+        (self.repo / 'SUPPORT.md').write_bytes(b'synthetic SUPPORT.md\r\n')
+        self.commit('crlf working copy, lf blob')
+        committed = subprocess.check_output(['git', '-C', str(self.repo), 'cat-file', 'blob', 'HEAD:SUPPORT.md'])
+        self.assertEqual(committed, b'synthetic SUPPORT.md\n')
+        self.assertEqual((self.repo / 'SUPPORT.md').read_bytes(), b'synthetic SUPPORT.md\r\n')
+        self.assert_refused_before_output(r'^payload differs from its committed blob: SUPPORT\.md$')
+
+    def replace_named_commit_with_pending_changes(self):
+        """Commit the pending changes, then let HEAD name the earlier commit while a replacement ref substitutes the new one."""
+        named = self.git('rev-parse', 'HEAD')
+        self.commit('replacement commit')
+        self.git('replace', named, self.git('rev-parse', 'HEAD'))
+        # HEAD names the original commit again, while index and working tree hold the replacement.
+        self.git('reset', '-q', '--soft', named)
+        self.assertEqual(self.git('rev-parse', 'HEAD'), named)
+        self.assertEqual(self.git('status', '--porcelain'), '', 'the replacement must leave status clean')
+        return named
+
+    def test_strict_reads_the_named_commit_despite_a_replacement_ref(self):
+        (self.repo / 'README.md').write_text('replacement bytes\n')
+        named = self.replace_named_commit_with_pending_changes()
+        self.assertEqual(self.git('cat-file', 'blob', named + ':README.md'), 'replacement bytes')
+        self.assertEqual(self.git('--no-replace-objects', 'cat-file', 'blob', named + ':README.md'), 'synthetic README.md')
+        self.assert_refused_before_output(r'^payload differs from its committed blob: README\.md$')
+
+    def test_strict_takes_membership_from_the_named_commit(self):
+        # The replacement drops the optional LICENSE, so the checkout looks complete without it.
+        self.git('rm', '-q', 'LICENSE')
+        named = self.replace_named_commit_with_pending_changes()
+        self.assertEqual(self.git('ls-files', '--', 'LICENSE'), '')
+        self.assertTrue(self.git('--no-replace-objects', 'ls-tree', named, 'LICENSE').startswith('100644 blob '))
+        self.assert_refused_before_output(
+            re.escape("commit and checkout disagree on members: commit only=['LICENSE']; checkout only=[]") + '$')
+
+    def test_strict_refuses_a_symlink_entry_checked_out_as_a_regular_file(self):
+        # With core.symlinks=false Git materializes a mode-120000 entry as a plain file holding the target.
+        self.git('config', 'core.symlinks', 'false')
+        self.git('rm', '-q', 'LICENSE')
+        target = subprocess.run(['git', '-C', str(self.repo), 'hash-object', '-w', '--stdin'],
+                                input=b'outside-license', capture_output=True, check=True).stdout.decode().strip()
+        self.git('update-index', '--add', '--cacheinfo', '120000,' + target + ',LICENSE')
+        (self.repo / 'LICENSE').write_bytes(b'outside-license')
+        self.commit('symlink entry, regular working file')
+        self.assertTrue(self.git('ls-tree', 'HEAD', 'LICENSE').startswith('120000 blob '))
+        self.assertFalse((self.repo / 'LICENSE').is_symlink())
+        self.assert_refused_before_output(r'^not a regular file in the commit: LICENSE$')
 
 if __name__=='__main__':unittest.main()
