@@ -43,10 +43,30 @@ def _check_strict_members(root:Path,paths:list[Path])->None:
     missing=sorted(allowed-set(OPTIONAL_NAMES)-selected);unexpected=sorted(selected-allowed)
     if missing or unexpected: raise ValueError('archive membership refused: missing='+repr(missing)+'; unexpected='+repr(unexpected))
 
-def _committed_bytes(root:Path,commit:str,rel:str)->bytes:
-    p=subprocess.run(['git','-C',str(root),'cat-file','blob',commit+':'+rel],capture_output=True,timeout=10,check=False)
+def _git_identity(root:Path,*args:str)->bytes:
+    # Identity lookups must read the named commit's own objects. A refs/replace
+    # entry would otherwise substitute another commit's tree while rev-parse
+    # still reports the original commit.
+    p=subprocess.run(['git','--no-replace-objects','-C',str(root),*args],capture_output=True,timeout=10,check=False)
     if p.returncode: raise ValueError('git command failed: '+p.stderr.decode(errors='replace').strip())
     return p.stdout
+
+def _check_commit_entries(root:Path,commit:str,names:list[str])->None:
+    # The checkout's view is not the commit's. The index can hold a different
+    # member set than the commit named in the manifest, and with
+    # core.symlinks=false a symlink entry is checked out as a regular file
+    # holding the link target. Take members and file types from the commit's tree.
+    entries={}
+    for entry in _git_identity(root,'ls-tree','-z',commit,'--',*STATIC_NAMES,*PACKAGE_NAMES,*OFFLINE_TEST_NAMES).decode().split('\0'):
+        if not entry: continue
+        meta,_,name=entry.partition('\t');mode,kind,_=meta.split(' ',2);entries[name]=(mode,kind)
+    commit_only=sorted(set(entries)-set(names));checkout_only=sorted(set(names)-set(entries))
+    if commit_only or checkout_only: raise ValueError('commit and checkout disagree on members: commit only='+repr(commit_only)+'; checkout only='+repr(checkout_only))
+    irregular=sorted(name for name,(mode,kind) in entries.items() if kind!='blob' or mode not in ('100644','100755'))
+    if irregular: raise ValueError('not a regular file in the commit: '+', '.join(irregular))
+
+def _committed_bytes(root:Path,commit:str,rel:str)->bytes:
+    return _git_identity(root,'cat-file','blob',commit+':'+rel)
 
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
@@ -59,11 +79,15 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     commit=_git(root,'rev-parse','HEAD')
     if len(commit)!=40: raise ValueError('exact commit required')
     # Strict mode selects once and validates membership before project metadata
-    # is read, so a missing pyproject.toml is reported as a member. It also binds
-    # every payload to its committed blob below. Both refusals happen before any
-    # output exists. The default call keeps its original order and permissiveness.
+    # is read, so a missing pyproject.toml is reported as a member. It then
+    # requires the commit's own tree to hold the same members as regular files,
+    # and binds every payload to its committed blob below. All of these refusals
+    # happen before any output exists. The default call keeps its original order
+    # and permissiveness.
     selected=_include_files(root) if strict_members else None
-    if selected is not None: _check_strict_members(root,selected)
+    if selected is not None:
+        _check_strict_members(root,selected)
+        _check_commit_entries(root,commit,[p.relative_to(root).as_posix() for p in selected])
     meta=tomllib.loads((root/'pyproject.toml').read_text(encoding='utf-8'));project=meta.get('project') or {}
     distribution=project.get('name');version=project.get('version')
     if not isinstance(distribution,str) or not isinstance(version,str): raise ValueError('project name/version required')
