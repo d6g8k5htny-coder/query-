@@ -1,5 +1,5 @@
 from __future__ import annotations
-import gzip,hashlib,io,json,subprocess,tarfile,tomllib
+import gzip,hashlib,io,json,os,subprocess,tarfile,tomllib
 from pathlib import Path
 
 STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE','CITATION.cff','SUPPORT.md','SECURITY.md','MANIFEST.in')
@@ -15,9 +15,21 @@ OFFLINE_TEST_NAMES=tuple('tests/'+name for name in (
 # LICENSE is the one optional member. Its absence is reported through
 # release_eligible; it is never a strict-membership failure.
 OPTIONAL_NAMES=('LICENSE',)
+# `git -C root` does not bind a command to root. An inherited GIT_DIR selects
+# another repository, whose commit would then be recorded, and an inherited
+# GIT_INDEX_FILE hides a staged change. Git's own list of repository-local
+# variables is `git rev-parse --local-env-vars`. No Git call below inherits
+# any of them, so repo_root alone names the repository. Four are kept on
+# purpose: GIT_CONFIG, GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT carry
+# settings such as safe.directory and select no repository, and
+# GIT_NO_REPLACE_OBJECTS can only make Git read the stored objects.
+REPOSITORY_ENV_NAMES=('GIT_DIR','GIT_WORK_TREE','GIT_IMPLICIT_WORK_TREE','GIT_COMMON_DIR','GIT_INDEX_FILE','GIT_OBJECT_DIRECTORY','GIT_ALTERNATE_OBJECT_DIRECTORIES','GIT_REPLACE_REF_BASE','GIT_GRAFT_FILE','GIT_SHALLOW_FILE','GIT_PREFIX')
+
+def _git_env()->dict:
+    return {name:value for name,value in os.environ.items() if name not in REPOSITORY_ENV_NAMES}
 
 def _git(root:Path,*args:str)->str:
-    p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False)
+    p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False,env=_git_env())
     if p.returncode: raise ValueError('git command failed: '+(p.stderr or p.stdout).strip())
     return p.stdout.strip()
 
@@ -47,7 +59,7 @@ def _git_identity(root:Path,*args:str)->bytes:
     # Identity lookups must read the named commit's own objects. A refs/replace
     # entry would otherwise substitute another commit's tree while rev-parse
     # still reports the original commit.
-    p=subprocess.run(['git','--no-replace-objects','-C',str(root),*args],capture_output=True,timeout=10,check=False)
+    p=subprocess.run(['git','--no-replace-objects','-C',str(root),*args],capture_output=True,timeout=10,check=False,env=_git_env())
     if p.returncode: raise ValueError('git command failed: '+p.stderr.decode(errors='replace').strip())
     return p.stdout
 

@@ -377,6 +377,107 @@ class ExtractedPackageContract(unittest.TestCase):
                       'probe_modes': [0, 1], 'namespace_submodule_survives': name.endswith('/__init__.py')}, sort_keys=True))
 
 
+class SyntheticCheckout(unittest.TestCase):
+    """A complete synthetic checkout for builder controls that are not about membership.
+
+    Every curated name holds inert text and nothing in it is imported. This class
+    has no tests of its own.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.repo = self.make_checkout('requested', 'requested repository')
+        self.head = self.git('rev-parse', 'HEAD')
+        # Its parent directory does not exist, so a refusal can be shown to create nothing.
+        self.out = self.base / 'out' / 'archive.tar.gz'
+
+    def make_checkout(self, name, message):
+        repo = self.base / name
+        for member in sorted(ARCHIVE_PAYLOADS):
+            path = repo / member
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('synthetic ' + member + '\n')
+        (repo / 'pyproject.toml').write_text('[project]\nname="universal-law-query"\nversion="0.1.0"\n')
+        for args in (('init', '-q'), ('config', 'user.email', 'test@example.com'), ('config', 'user.name', 'test'),
+                     ('add', '-A'), ('commit', '-qm', message)):
+            self.git_in(repo, *args)
+        self.assertEqual(self.git_in(repo, 'status', '--porcelain'), '')
+        return repo
+
+    def git_in(self, repo, *args):
+        return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
+
+    def git(self, *args):
+        return self.git_in(self.repo, *args)
+
+    def build(self, strict, output=None, **inherited):
+        """Call the builder in default or strict mode, with extra inherited environment variables."""
+        with mock.patch.dict(os.environ, inherited):
+            return build_source_archive(self.repo, output or self.out, 1700000000, strict_members=strict)
+
+    def recorded_commits(self, archive):
+        with tarfile.open(archive, 'r:gz') as tf:
+            return {name: json.load(tf.extractfile(name))['commit'] for name in sorted(GENERATED_FILES)}
+
+
+class RepositoryBinding(SyntheticCheckout):
+    """The builder reads the repository at repo_root, whatever Git variables it inherits (query-#30 finding 4213083097)."""
+
+    def test_inherited_git_dir_cannot_select_another_repository(self):
+        # Same payload bytes, another repository: only its commit ID shows which one was read.
+        other = self.make_checkout('other', 'a different repository')
+        other_head = self.git_in(other, 'rev-parse', 'HEAD')
+        self.assertNotEqual(other_head, self.head)
+        redirections = (
+            {'GIT_DIR': str(other / '.git'), 'GIT_WORK_TREE': str(self.repo)},
+            {'GIT_DIR': str(other / '.git')},
+        )
+        for strict in (False, True):
+            for inherited in redirections:
+                with self.subTest(strict=strict, inherited=sorted(inherited)):
+                    result = self.build(strict, **inherited)
+                    self.assertEqual(result['commit'], self.head)
+                    self.assertEqual(self.recorded_commits(self.out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_inherited_index_file_cannot_hide_a_staged_change(self):
+        other = self.make_checkout('other', 'a different repository')
+        (self.repo / 'README.md').write_text('staged and not committed\n')
+        self.git('add', 'README.md')
+        (self.repo / 'README.md').write_text('synthetic README.md\n')
+        self.assertEqual(self.git('status', '--porcelain'), 'MM README.md')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, '^working tree must be clean$'):
+                    self.build(strict, GIT_INDEX_FILE=str(other / '.git' / 'index'))
+                self.assertFalse(self.out.parent.exists())
+
+    def test_every_repository_selecting_variable_git_lists_is_removed(self):
+        # Git prints its own list of repository-local variables. The builder removes all of
+        # them except these, which select no repository. A Git that lists a new one fails here.
+        import build_source_release as builder
+        kept = {'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_NO_REPLACE_OBJECTS'}
+        listed = set(subprocess.check_output(['git', 'rev-parse', '--local-env-vars'], text=True).split())
+        self.assertLessEqual({'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'}, listed)
+        self.assertEqual(listed - kept - set(builder.REPOSITORY_ENV_NAMES), set(),
+                         'Git lists a repository-local variable that the builder neither removes nor keeps on purpose')
+        self.assertEqual(kept & set(builder.REPOSITORY_ENV_NAMES), set())
+        inherited = dict.fromkeys(listed | kept | set(builder.REPOSITORY_ENV_NAMES), 'inherited')
+        with mock.patch.dict(os.environ, inherited):
+            passed_on = builder._git_env()
+        self.assertEqual({name for name in passed_on if name in inherited}, kept)
+        self.assertEqual(passed_on.get('PATH'), os.environ.get('PATH'))
+
+    def test_inherited_configuration_still_reaches_git(self):
+        # GIT_CONFIG_COUNT is kept on purpose: it is how a caller passes settings such as safe.directory.
+        (self.repo / 'untracked.txt').write_text('not tracked\n')
+        with self.assertRaisesRegex(ValueError, '^working tree must be clean$'):
+            self.build(False)
+        setting = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'status.showUntrackedFiles', 'GIT_CONFIG_VALUE_0': 'no'}
+        self.assertEqual(self.build(False, **setting)['commit'], self.head)
+
+
 # LICENSE is the one optional member; every other curated name is mandatory.
 MANDATORY_PAYLOADS = ARCHIVE_PAYLOADS - {'LICENSE'}
 

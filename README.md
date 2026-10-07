@@ -145,6 +145,12 @@ checkout. It builds the package archive described above with normalized metadata
 and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`, preserving tracked-only
 selection and public-file/symlink guards.
 
+In both modes the builder reads the repository at the checkout it is given. Its
+Git commands run without the inherited variables that select another repository,
+work tree, index or object store (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`
+and the others listed in the script), so such a variable cannot put another
+repository's commit into the manifest.
+
 For the complete package archive, call
 `build_source_archive(repo, output, epoch, strict_members=True)`. Strict mode
 compares the selected names with the curated lists and refuses before anything
