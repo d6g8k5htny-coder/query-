@@ -218,13 +218,27 @@ class ExtractedPackageContract(unittest.TestCase):
             committed = subprocess.check_output(['git', '-C', str(self.repo), 'show', 'HEAD:' + name])
             self.assertEqual(committed, raw, name)
         self.archive = self.base / 'source.tar.gz'
-        # The complete-checkout contract opts into producer-side membership.
-        self.result = build_source_archive(self.repo, self.archive, 1700000000, strict_members=True)
+        self.result = self.build_contract_archive(self.archive)
         self.extracted = self.base / 'extracted'
         self.extracted.mkdir()
 
+    def build_contract_archive(self, output):
+        # The one complete-checkout call site. It opts into the producer-side checks, and
+        # test_complete_checkout_call_refuses_a_missing_member fails if that opt-in is dropped.
+        return build_source_archive(self.repo, output, 1700000000, strict_members=True)
+
     def git(self, *args):
         return subprocess.check_output(['git', '-C', str(self.repo), *args], text=True).strip()
+
+    def test_complete_checkout_call_refuses_a_missing_member(self):
+        # A valid checkout builds the same bytes with or without the opt-in, so only a
+        # bad input sent through this same call shows that the call still opts in.
+        self.git('rm', '-q', 'SUPPORT.md')
+        self.git('commit', '-qm', 'drop a required member')
+        refused = self.base / 'refused' / 'source.tar.gz'
+        with self.assertRaisesRegex(ValueError, r"^archive membership refused: missing=\['SUPPORT\.md'\]; unexpected=\[\]$"):
+            self.build_contract_archive(refused)
+        self.assertFalse(refused.parent.exists())
 
     def extract_verified(self):
         with tarfile.open(self.archive, 'r:gz') as archive:
@@ -524,11 +538,13 @@ class StrictMembers(unittest.TestCase):
         self.assertEqual((self.repo / 'SUPPORT.md').read_bytes(), b'synthetic SUPPORT.md\r\n')
         self.assert_refused_before_output(r'^payload differs from its committed blob: SUPPORT\.md$')
 
-    def replace_named_commit_with_pending_changes(self):
-        """Commit the pending changes, then let HEAD name the earlier commit while a replacement ref substitutes the new one."""
+    def replace_named_commit_with_pending_changes(self, replaced='commit'):
+        """Commit the pending changes, then let HEAD name the earlier commit while a replacement ref
+        substitutes the new commit, or only the new tree, for the earlier one."""
         named = self.git('rev-parse', 'HEAD')
         self.commit('replacement commit')
-        self.git('replace', named, self.git('rev-parse', 'HEAD'))
+        suffix = '' if replaced == 'commit' else '^{tree}'
+        self.git('replace', self.git('rev-parse', named + suffix), self.git('rev-parse', 'HEAD' + suffix))
         # HEAD names the original commit again, while index and working tree hold the replacement.
         self.git('reset', '-q', '--soft', named)
         self.assertEqual(self.git('rev-parse', 'HEAD'), named)
@@ -563,5 +579,31 @@ class StrictMembers(unittest.TestCase):
         self.assertTrue(self.git('ls-tree', 'HEAD', 'LICENSE').startswith('120000 blob '))
         self.assertFalse((self.repo / 'LICENSE').is_symlink())
         self.assert_refused_before_output(r'^not a regular file in the commit: LICENSE$')
+
+    def test_strict_reads_the_named_commit_despite_a_replaced_tree(self):
+        (self.repo / 'README.md').write_text('replacement tree bytes\n')
+        named = self.replace_named_commit_with_pending_changes(replaced='tree')
+        self.assertEqual(self.git('cat-file', 'blob', named + ':README.md'), 'replacement tree bytes')
+        self.assert_refused_before_output(r'^payload differs from its committed blob: README\.md$')
+
+    def test_strict_reads_the_named_commit_despite_a_replaced_blob(self):
+        original = self.git('rev-parse', 'HEAD:README.md')
+        other = subprocess.run(['git', '-C', str(self.repo), 'hash-object', '-w', '--stdin'],
+                               input=b'replacement blob bytes\n', capture_output=True, check=True).stdout.decode().strip()
+        self.git('replace', original, other)
+        # The index still records the original blob, so only a hint keeps status clean.
+        self.git('update-index', '--assume-unchanged', 'README.md')
+        (self.repo / 'README.md').write_text('replacement blob bytes\n')
+        self.assertEqual(self.git('status', '--porcelain'), '')
+        self.assertEqual(self.git('cat-file', 'blob', 'HEAD:README.md'), 'replacement blob bytes')
+        self.assert_refused_before_output(r'^payload differs from its committed blob: README\.md$')
+
+    def test_strict_accepts_an_executable_regular_payload(self):
+        self.git('update-index', '--chmod=+x', 'research_query.py')
+        (self.repo / 'research_query.py').chmod(0o755)
+        self.commit('executable wrapper')
+        self.assertTrue(self.git('ls-tree', 'HEAD', 'research_query.py').startswith('100755 blob '))
+        result = build_source_archive(self.repo, self.out, 1700000000, strict_members=True)
+        self.assertEqual((result['file_count'], result['release_eligible']), (21, True))
 
 if __name__=='__main__':unittest.main()
