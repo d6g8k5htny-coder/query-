@@ -520,6 +520,62 @@ class RecordedCommit(SyntheticCheckout):
                 self.assertFalse(self.out.parent.exists())
 
 
+class OutputAlias(SyntheticCheckout):
+    """An output that is another name of an existing file is not written through (QUERY29-OUTPUT-ALIAS-01)."""
+
+    REFUSAL = '^output is a hard link to another file: '
+
+    def test_output_hard_linked_into_the_checkout_is_refused_and_overwrites_nothing(self):
+        # A tracked file, an ignored untracked file and the repository's own configuration.
+        cases = [(target, strict) for target in ('README.md', 'notes.txt', '.git/config') for strict in (False, True)]
+        for number, (target, strict) in enumerate(cases):
+            with self.subTest(target=target, strict=strict):
+                self.repo = self.make_checkout('aliased-%d' % number, 'requested repository')
+                (self.repo / '.git' / 'info').mkdir(exist_ok=True)
+                (self.repo / '.git' / 'info' / 'exclude').write_text('notes.txt\n')
+                (self.repo / 'notes.txt').write_text('untracked and ignored\n')
+                self.assertEqual(self.git('status', '--porcelain'), '')
+                source = self.repo / target
+                before = source.read_bytes()
+                out = self.base / ('alias-%d' % number)
+                os.link(source, out)
+                self.assertTrue(out.samefile(source))
+                with self.assertRaisesRegex(ValueError, self.REFUSAL):
+                    self.build(strict, out)
+                self.assertEqual(source.read_bytes(), before)
+                self.assertTrue(out.samefile(source))
+                self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def test_output_hard_linked_to_a_file_outside_the_checkout_is_refused_too(self):
+        elsewhere = self.base / 'elsewhere.txt'
+        elsewhere.write_text('an unrelated file\n')
+        out = self.base / 'alias-outside'
+        os.link(elsewhere, out)
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, self.REFUSAL):
+                    self.build(strict, out)
+                self.assertEqual(elsewhere.read_text(), 'an unrelated file\n')
+
+    def test_existing_output_with_a_single_link_is_overwritten_as_before(self):
+        self.out.parent.mkdir()
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                self.out.write_bytes(b'an earlier archive')
+                result = self.build(strict)
+                self.assertEqual(hashlib.sha256(self.out.read_bytes()).hexdigest(), result['archive_sha256'])
+                self.assertEqual(self.recorded_commits(self.out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_directory_at_the_output_path_fails_as_before(self):
+        # A directory has more than one link too; it must keep failing where the file is opened.
+        self.out.mkdir(parents=True)
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaises(OSError):
+                    self.build(strict)
+                self.assertEqual(list(self.out.iterdir()), [])
+
+
 # LICENSE is the one optional member; every other curated name is mandatory.
 MANDATORY_PAYLOADS = ARCHIVE_PAYLOADS - {'LICENSE'}
 

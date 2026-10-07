@@ -1,5 +1,5 @@
 from __future__ import annotations
-import gzip,hashlib,io,json,os,subprocess,tarfile,tomllib
+import gzip,hashlib,io,json,os,stat,subprocess,tarfile,tomllib
 from pathlib import Path
 
 STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE','CITATION.cff','SUPPORT.md','SECURITY.md','MANIFEST.in')
@@ -88,6 +88,16 @@ def _head_commit(root:Path)->str:
     try: return _git_identity(root,'rev-parse','--verify','--quiet','HEAD^{commit}').decode().strip()
     except ValueError: raise ValueError('HEAD does not name a commit') from None
 
+def _check_output_alias(output:Path)->None:
+    # Resolving the output path follows symbolic links, but it cannot see a hard
+    # link. An existing output that shares its file with another name would be
+    # truncated together with that name, and the other name can be a tracked
+    # file or .git/config inside the checkout. Refuse it instead of writing
+    # through it. An existing output with a single link is overwritten as before.
+    try: st=output.stat()
+    except OSError: return
+    if stat.S_ISREG(st.st_mode) and st.st_nlink>1: raise ValueError('output is a hard link to another file: '+str(output))
+
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
 
@@ -125,6 +135,7 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     manifest_raw=(json.dumps(manifest,sort_keys=True,indent=2)+'\n').encode()
     build={'schema_version':'1.0','repository':'d6g8k5htny-coder/query-','commit':commit,'source_date_epoch':source_date_epoch,'builder':'universal-law-query-source-builder-v1'}
     build_raw=(json.dumps(build,sort_keys=True,indent=2)+'\n').encode()
+    _check_output_alias(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     with output.open('wb') as fh:
         with gzip.GzipFile(filename='',mode='wb',fileobj=fh,compresslevel=9,mtime=source_date_epoch) as gz:

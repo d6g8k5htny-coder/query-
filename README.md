@@ -151,7 +151,9 @@ work tree, index or object store (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`
 and the others listed in the script), so such a variable cannot put another
 repository's commit into the manifest. The recorded `commit` is the commit that
 HEAD resolves to: a HEAD that names an annotated tag records the tagged commit,
-and a HEAD that leads to no commit is refused.
+and a HEAD that leads to no commit is refused. An existing output file that has
+another hard link is refused as well, because writing through it would overwrite
+the file behind the other name, and that can be a file inside the checkout.
 
 For the complete package archive, call
 `build_source_archive(repo, output, epoch, strict_members=True)`. Strict mode
