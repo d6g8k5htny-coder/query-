@@ -388,6 +388,7 @@ class StrictMembers(unittest.TestCase):
         self.git('init', '-q')
         self.git('config', 'user.email', 'test@example.com')
         self.git('config', 'user.name', 'test')
+        self.git('config', 'core.safecrlf', 'false')
         self.commit('complete fixture')
         # Its parent directory does not exist, so a refusal can be shown to create nothing.
         self.out = self.base / 'out' / 'archive.tar.gz'
@@ -495,5 +496,32 @@ class StrictMembers(unittest.TestCase):
         result = build_source_archive(self.repo, self.out, 1700000000)
         self.assertEqual((result['file_count'], result['release_eligible']), (20, True))
         self.assertNotIn('SUPPORT.md', self.members(self.out))
+
+    def test_strict_binds_payload_bytes_to_the_commit_despite_index_hints(self):
+        for hint in ('assume-unchanged', 'skip-worktree'):
+            with self.subTest(hint=hint):
+                self.git('update-index', '--' + hint, 'README.md')
+                try:
+                    # A hinted file whose bytes are still the commit's is a positive control.
+                    unchanged = self.base / ('hinted-' + hint + '.tar.gz')
+                    result = build_source_archive(self.repo, unchanged, 1700000000, strict_members=True)
+                    self.assertEqual(result['file_count'], 21)
+                    (self.repo / 'README.md').write_text('altered behind the index hint\n')
+                    self.assertEqual(self.git('status', '--porcelain'), '', 'the hint must hide the change from status')
+                    self.assert_refused_before_output(r'^payload differs from its committed blob: README\.md$')
+                finally:
+                    self.git('update-index', '--no-' + hint, 'README.md')
+                    self.git('checkout', '--', 'README.md')
+                self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def test_strict_refuses_bytes_changed_by_checkout_normalization(self):
+        # Deliberate choice: working bytes that are not the committed blob are refused, never normalized.
+        (self.repo / '.gitattributes').write_text('SUPPORT.md text eol=crlf\n')
+        (self.repo / 'SUPPORT.md').write_bytes(b'synthetic SUPPORT.md\r\n')
+        self.commit('crlf working copy, lf blob')
+        committed = subprocess.check_output(['git', '-C', str(self.repo), 'cat-file', 'blob', 'HEAD:SUPPORT.md'])
+        self.assertEqual(committed, b'synthetic SUPPORT.md\n')
+        self.assertEqual((self.repo / 'SUPPORT.md').read_bytes(), b'synthetic SUPPORT.md\r\n')
+        self.assert_refused_before_output(r'^payload differs from its committed blob: SUPPORT\.md$')
 
 if __name__=='__main__':unittest.main()

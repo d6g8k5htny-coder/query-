@@ -151,9 +151,11 @@ compares the selected names with the curated lists and refuses before anything
 is written when a required member is missing, or when a selected path is not a
 listed name (for example a directory standing where a listed file should be).
 LICENSE alone is optional: without it the archive holds 20 payloads and
-`release_eligible` is false. The default call does not make this check; it stays
-permissive so that partial fixtures keep working, and it will write a smaller
-archive without an error.
+`release_eligible` is false. Strict mode also compares every selected file with
+the blob recorded for it in HEAD and refuses when they differ, so index hints
+or checkout normalization cannot place other bytes under the recorded commit.
+The default call makes neither check; it stays permissive so that partial
+fixtures keep working, and it will write a smaller archive without an error.
 
 The repository uses the MIT license in [`LICENSE`](LICENSE). The current
 `release_eligible` field means that LICENSE is present in the selected payload

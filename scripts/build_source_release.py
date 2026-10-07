@@ -43,6 +43,11 @@ def _check_strict_members(root:Path,paths:list[Path])->None:
     missing=sorted(allowed-set(OPTIONAL_NAMES)-selected);unexpected=sorted(selected-allowed)
     if missing or unexpected: raise ValueError('archive membership refused: missing='+repr(missing)+'; unexpected='+repr(unexpected))
 
+def _committed_bytes(root:Path,commit:str,rel:str)->bytes:
+    p=subprocess.run(['git','-C',str(root),'cat-file','blob',commit+':'+rel],capture_output=True,timeout=10,check=False)
+    if p.returncode: raise ValueError('git command failed: '+p.stderr.decode(errors='replace').strip())
+    return p.stdout
+
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
 
@@ -54,8 +59,9 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     commit=_git(root,'rev-parse','HEAD')
     if len(commit)!=40: raise ValueError('exact commit required')
     # Strict mode selects once and validates membership before project metadata
-    # is read, so a missing pyproject.toml is reported as a member and nothing
-    # is written. The default call keeps its original order and permissiveness.
+    # is read, so a missing pyproject.toml is reported as a member. It also binds
+    # every payload to its committed blob below. Both refusals happen before any
+    # output exists. The default call keeps its original order and permissiveness.
     selected=_include_files(root) if strict_members else None
     if selected is not None: _check_strict_members(root,selected)
     meta=tomllib.loads((root/'pyproject.toml').read_text(encoding='utf-8'));project=meta.get('project') or {}
@@ -64,7 +70,12 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     files=[];payloads=[]
     for p in (_include_files(root) if selected is None else selected):
         rel=p.relative_to(root).as_posix()
-        raw=p.read_bytes();files.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)});payloads.append((rel,raw))
+        raw=p.read_bytes()
+        # A clean status does not prove these are the commit's bytes: index hints
+        # (assume-unchanged, skip-worktree) and checkout filters can hide a
+        # difference. Strict mode refuses it instead of normalizing either side.
+        if selected is not None and raw!=_committed_bytes(root,commit,rel): raise ValueError('payload differs from its committed blob: '+rel)
+        files.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)});payloads.append((rel,raw))
     eligible=any(row['path']=='LICENSE' for row in files)
     manifest={'schema_version':'1.0','distribution':distribution,'version':version,'repository':'d6g8k5htny-coder/query-','commit':commit,'scientific_status_authority':False,'release_eligible':eligible,'files':files}
     manifest_raw=(json.dumps(manifest,sort_keys=True,indent=2)+'\n').encode()
