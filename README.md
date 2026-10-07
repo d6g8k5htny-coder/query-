@@ -145,6 +145,16 @@ checkout. It builds the package archive described above with normalized metadata
 and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`, preserving tracked-only
 selection and public-file/symlink guards.
 
+For the complete package archive, call
+`build_source_archive(repo, output, epoch, strict_members=True)`. Strict mode
+compares the selected names with the curated lists and refuses before anything
+is written when a required member is missing, or when a selected path is not a
+listed name (for example a directory standing where a listed file should be).
+LICENSE alone is optional: without it the archive holds 20 payloads and
+`release_eligible` is false. The default call does not make this check; it stays
+permissive so that partial fixtures keep working, and it will write a smaller
+archive without an error.
+
 The repository uses the MIT license in [`LICENSE`](LICENSE). The current
 `release_eligible` field means that LICENSE is present in the selected payload
 after the builder's guards; it does not mean extracted tests passed or authorize

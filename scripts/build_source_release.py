@@ -12,6 +12,9 @@ OFFLINE_TEST_NAMES=tuple('tests/'+name for name in (
     'test_catalog.py','test_catalog_entry.py','test_cli.py',
     'test_stub_verify.py','test_wrapper_parity.py',
 ))
+# LICENSE is the one optional member. Its absence is reported through
+# release_eligible; it is never a strict-membership failure.
+OPTIONAL_NAMES=('LICENSE',)
 
 def _git(root:Path,*args:str)->str:
     p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False)
@@ -31,21 +34,35 @@ def _include_files(root:Path)->list[Path]:
         out.append(path)
     return sorted(out,key=lambda p:p.relative_to(root).as_posix())
 
+def _check_strict_members(root:Path,paths:list[Path])->None:
+    # A Git pathspec selects; it does not assert exact file membership. A deleted
+    # member is silently unmatched, and a directory standing at a listed name
+    # returns its descendants. Compare the accepted names with the curated lists.
+    allowed={*STATIC_NAMES,*PACKAGE_NAMES,*OFFLINE_TEST_NAMES}
+    selected={p.relative_to(root).as_posix() for p in paths}
+    missing=sorted(allowed-set(OPTIONAL_NAMES)-selected);unexpected=sorted(selected-allowed)
+    if missing or unexpected: raise ValueError('archive membership refused: missing='+repr(missing)+'; unexpected='+repr(unexpected))
+
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
 
-def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int)->dict:
+def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,strict_members:bool=False)->dict:
     root=Path(repo_root).resolve(strict=True);output=Path(output).resolve()
     if output.is_relative_to(root): raise ValueError('output must be outside repository')
     if not isinstance(source_date_epoch,int) or source_date_epoch<0: raise ValueError('invalid SOURCE_DATE_EPOCH')
     if _git(root,'status','--porcelain'): raise ValueError('working tree must be clean')
     commit=_git(root,'rev-parse','HEAD')
     if len(commit)!=40: raise ValueError('exact commit required')
+    # Strict mode selects once and validates membership before project metadata
+    # is read, so a missing pyproject.toml is reported as a member and nothing
+    # is written. The default call keeps its original order and permissiveness.
+    selected=_include_files(root) if strict_members else None
+    if selected is not None: _check_strict_members(root,selected)
     meta=tomllib.loads((root/'pyproject.toml').read_text(encoding='utf-8'));project=meta.get('project') or {}
     distribution=project.get('name');version=project.get('version')
     if not isinstance(distribution,str) or not isinstance(version,str): raise ValueError('project name/version required')
     files=[];payloads=[]
-    for p in _include_files(root):
+    for p in (_include_files(root) if selected is None else selected):
         rel=p.relative_to(root).as_posix()
         raw=p.read_bytes();files.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)});payloads.append((rel,raw))
     eligible=any(row['path']=='LICENSE' for row in files)
