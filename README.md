@@ -201,12 +201,13 @@ To build and extract the complete archive from a clean checkout:
 
 ```bash
 python -B -S -c "import sys; from pathlib import Path; sys.path.insert(0, 'scripts'); from build_source_release import build_source_archive; print(build_source_archive(Path('.'), Path('../query-archive/source.tar.gz'), 1700000000, strict_members=True))"
+rm -rf ../query-archive/extracted
 mkdir -p ../query-archive/extracted
 tar -xzf ../query-archive/source.tar.gz -C ../query-archive/extracted
 cd ../query-archive/extracted
 ```
 
-Then run the extracted-archive commands above from that directory. The builder
+Then run the extracted-archive commands above from that directory. The extraction directory is recreated empty so stale files from an earlier run can't mask archive omissions. The builder
 refuses a dirty working tree and an output path inside the checkout; untracked
 `__pycache__/` directories count as dirty, so run earlier checkout commands with
 `-B`. The epoch argument (`1700000000` here) sets the archive timestamps and is
