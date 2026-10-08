@@ -1,8 +1,11 @@
 """Controls for verify_portable_stubs.py (offline-safe unit checks)."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -55,9 +58,13 @@ class VerifyPortableStubs(unittest.TestCase):
             'sha256': hashlib.sha256(b'data').hexdigest(),
         }
         v.validate_row(row)
-        with mock.patch.object(v, 'fetch', return_value=b'data'):
-            with mock.patch.object(v, 'load_candidates', return_value=[row]):
-                self.assertEqual(v.main([]), 0)
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {'QUERY_STUB_VERIFY': '1'}), \
+                mock.patch.object(v, 'fetch', return_value=b'data'), \
+                mock.patch.object(v, 'load_candidates', return_value=[row]), \
+                contextlib.redirect_stdout(out):
+            self.assertEqual(v.main([]), 0)
+        self.assertEqual(json.loads(out.getvalue())['verified'], ['t'])
 
     def _gate_row(self, payload: bytes = b'data'):
         return {
