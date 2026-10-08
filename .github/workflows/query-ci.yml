@@ -26,7 +26,10 @@ jobs:
       - name: Run canonical package and deterministic-source controls
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python -B -S -m unittest discover -s tests -p 'test_*.py' -v
+        run: |
+          set -euo pipefail
+          python -B -S -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | tee discovery.log
+          grep -E 'Ran [1-9][0-9]* test' discovery.log
       - name: Verify portable candidate stubs against pinned public commits
         env:
           PYTHONDONTWRITEBYTECODE: '1'
