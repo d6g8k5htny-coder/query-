@@ -377,6 +377,205 @@ class ExtractedPackageContract(unittest.TestCase):
                       'probe_modes': [0, 1], 'namespace_submodule_survives': name.endswith('/__init__.py')}, sort_keys=True))
 
 
+class SyntheticCheckout(unittest.TestCase):
+    """A complete synthetic checkout for builder controls that are not about membership.
+
+    Every curated name holds inert text and nothing in it is imported. This class
+    has no tests of its own.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.repo = self.make_checkout('requested', 'requested repository')
+        self.head = self.git('rev-parse', 'HEAD')
+        # Its parent directory does not exist, so a refusal can be shown to create nothing.
+        self.out = self.base / 'out' / 'archive.tar.gz'
+
+    def make_checkout(self, name, message):
+        repo = self.base / name
+        for member in sorted(ARCHIVE_PAYLOADS):
+            path = repo / member
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('synthetic ' + member + '\n')
+        (repo / 'pyproject.toml').write_text('[project]\nname="universal-law-query"\nversion="0.1.0"\n')
+        for args in (('init', '-q'), ('config', 'user.email', 'test@example.com'), ('config', 'user.name', 'test'),
+                     ('add', '-A'), ('commit', '-qm', message)):
+            self.git_in(repo, *args)
+        self.assertEqual(self.git_in(repo, 'status', '--porcelain'), '')
+        return repo
+
+    def git_in(self, repo, *args):
+        return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
+
+    def git(self, *args):
+        return self.git_in(self.repo, *args)
+
+    def build(self, strict, output=None, **inherited):
+        """Call the builder in default or strict mode, with extra inherited environment variables."""
+        with mock.patch.dict(os.environ, inherited):
+            return build_source_archive(self.repo, output or self.out, 1700000000, strict_members=strict)
+
+    def recorded_commits(self, archive):
+        with tarfile.open(archive, 'r:gz') as tf:
+            return {name: json.load(tf.extractfile(name))['commit'] for name in sorted(GENERATED_FILES)}
+
+
+class RepositoryBinding(SyntheticCheckout):
+    """The builder reads the repository at repo_root, whatever Git variables it inherits (query-#30 finding 4213083097)."""
+
+    def test_inherited_git_dir_cannot_select_another_repository(self):
+        # Same payload bytes, another repository: only its commit ID shows which one was read.
+        other = self.make_checkout('other', 'a different repository')
+        other_head = self.git_in(other, 'rev-parse', 'HEAD')
+        self.assertNotEqual(other_head, self.head)
+        redirections = (
+            {'GIT_DIR': str(other / '.git'), 'GIT_WORK_TREE': str(self.repo)},
+            {'GIT_DIR': str(other / '.git')},
+        )
+        for strict in (False, True):
+            for inherited in redirections:
+                with self.subTest(strict=strict, inherited=sorted(inherited)):
+                    result = self.build(strict, **inherited)
+                    self.assertEqual(result['commit'], self.head)
+                    self.assertEqual(self.recorded_commits(self.out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_inherited_index_file_cannot_hide_a_staged_change(self):
+        other = self.make_checkout('other', 'a different repository')
+        (self.repo / 'README.md').write_text('staged and not committed\n')
+        self.git('add', 'README.md')
+        (self.repo / 'README.md').write_text('synthetic README.md\n')
+        self.assertEqual(self.git('status', '--porcelain'), 'MM README.md')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, '^working tree must be clean$'):
+                    self.build(strict, GIT_INDEX_FILE=str(other / '.git' / 'index'))
+                self.assertFalse(self.out.parent.exists())
+
+    def test_every_repository_selecting_variable_git_lists_is_removed(self):
+        # Git prints its own list of repository-local variables. The builder removes all of
+        # them except these, which select no repository. A Git that lists a new one fails here.
+        import build_source_release as builder
+        kept = {'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_NO_REPLACE_OBJECTS'}
+        listed = set(subprocess.check_output(['git', 'rev-parse', '--local-env-vars'], text=True).split())
+        self.assertLessEqual({'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'}, listed)
+        self.assertEqual(listed - kept - set(builder.REPOSITORY_ENV_NAMES), set(),
+                         'Git lists a repository-local variable that the builder neither removes nor keeps on purpose')
+        self.assertEqual(kept & set(builder.REPOSITORY_ENV_NAMES), set())
+        inherited = dict.fromkeys(listed | kept | set(builder.REPOSITORY_ENV_NAMES), 'inherited')
+        with mock.patch.dict(os.environ, inherited):
+            passed_on = builder._git_env()
+        self.assertEqual({name for name in passed_on if name in inherited}, kept)
+        self.assertEqual(passed_on.get('PATH'), os.environ.get('PATH'))
+
+    def test_inherited_configuration_still_reaches_git(self):
+        # GIT_CONFIG_COUNT is kept on purpose: it is how a caller passes settings such as safe.directory.
+        (self.repo / 'untracked.txt').write_text('not tracked\n')
+        with self.assertRaisesRegex(ValueError, '^working tree must be clean$'):
+            self.build(False)
+        setting = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'status.showUntrackedFiles', 'GIT_CONFIG_VALUE_0': 'no'}
+        self.assertEqual(self.build(False, **setting)['commit'], self.head)
+
+
+class RecordedCommit(SyntheticCheckout):
+    """The manifest's commit field holds a commit ID (query-#30 finding 4213083108)."""
+
+    def annotated_tag(self):
+        self.git('tag', '-a', 'v1', '-m', 'annotated tag')
+        tag = self.git('rev-parse', 'refs/tags/v1')
+        self.assertEqual(self.git('cat-file', '-t', tag), 'tag')
+        self.assertNotEqual(tag, self.head)
+        return tag
+
+    def assert_records_the_tagged_commit(self, tag):
+        # Git peels the tag for status, so the checkout still looks ordinary and clean.
+        self.assertEqual(self.git('rev-parse', 'HEAD'), tag)
+        self.assertEqual(self.git('status', '--porcelain'), '')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                out = self.base / ('out-%d' % strict) / 'archive.tar.gz'
+                self.assertEqual(self.build(strict, out)['commit'], self.head)
+                self.assertEqual(self.recorded_commits(out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_symbolic_head_naming_an_annotated_tag_records_the_tagged_commit(self):
+        tag = self.annotated_tag()
+        self.git('symbolic-ref', 'HEAD', 'refs/tags/v1')
+        self.assert_records_the_tagged_commit(tag)
+
+    def test_head_file_holding_a_tag_id_records_the_tagged_commit(self):
+        tag = self.annotated_tag()
+        # update-ref refuses to write a tag ID to HEAD, but Git reads one that is there.
+        (self.repo / '.git' / 'HEAD').write_text(tag + '\n')
+        self.assert_records_the_tagged_commit(tag)
+
+    def test_head_leading_to_no_commit_is_refused(self):
+        self.git('tag', '-a', 'tree-tag', '-m', 'a tree, not a commit', self.head + '^{tree}')
+        self.git('symbolic-ref', 'HEAD', 'refs/tags/tree-tag')
+        self.assertEqual(self.git('status', '--porcelain'), '')
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, '^HEAD does not name a commit$'):
+                    self.build(strict)
+                self.assertFalse(self.out.parent.exists())
+
+
+class OutputAlias(SyntheticCheckout):
+    """An output that is another name of an existing file is not written through (QUERY29-OUTPUT-ALIAS-01)."""
+
+    REFUSAL = '^output is a hard link to another file: '
+
+    def test_output_hard_linked_into_the_checkout_is_refused_and_overwrites_nothing(self):
+        # A tracked file, an ignored untracked file and the repository's own configuration.
+        cases = [(target, strict) for target in ('README.md', 'notes.txt', '.git/config') for strict in (False, True)]
+        for number, (target, strict) in enumerate(cases):
+            with self.subTest(target=target, strict=strict):
+                self.repo = self.make_checkout('aliased-%d' % number, 'requested repository')
+                (self.repo / '.git' / 'info').mkdir(exist_ok=True)
+                (self.repo / '.git' / 'info' / 'exclude').write_text('notes.txt\n')
+                (self.repo / 'notes.txt').write_text('untracked and ignored\n')
+                self.assertEqual(self.git('status', '--porcelain'), '')
+                source = self.repo / target
+                before = source.read_bytes()
+                out = self.base / ('alias-%d' % number)
+                os.link(source, out)
+                self.assertTrue(out.samefile(source))
+                with self.assertRaisesRegex(ValueError, self.REFUSAL):
+                    self.build(strict, out)
+                self.assertEqual(source.read_bytes(), before)
+                self.assertTrue(out.samefile(source))
+                self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def test_output_hard_linked_to_a_file_outside_the_checkout_is_refused_too(self):
+        elsewhere = self.base / 'elsewhere.txt'
+        elsewhere.write_text('an unrelated file\n')
+        out = self.base / 'alias-outside'
+        os.link(elsewhere, out)
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaisesRegex(ValueError, self.REFUSAL):
+                    self.build(strict, out)
+                self.assertEqual(elsewhere.read_text(), 'an unrelated file\n')
+
+    def test_existing_output_with_a_single_link_is_overwritten_as_before(self):
+        self.out.parent.mkdir()
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                self.out.write_bytes(b'an earlier archive')
+                result = self.build(strict)
+                self.assertEqual(hashlib.sha256(self.out.read_bytes()).hexdigest(), result['archive_sha256'])
+                self.assertEqual(self.recorded_commits(self.out), dict.fromkeys(sorted(GENERATED_FILES), self.head))
+
+    def test_directory_at_the_output_path_fails_as_before(self):
+        # A directory has more than one link too; it must keep failing where the file is opened.
+        self.out.mkdir(parents=True)
+        for strict in (False, True):
+            with self.subTest(strict=strict):
+                with self.assertRaises(OSError):
+                    self.build(strict)
+                self.assertEqual(list(self.out.iterdir()), [])
+
+
 # LICENSE is the one optional member; every other curated name is mandatory.
 MANDATORY_PAYLOADS = ARCHIVE_PAYLOADS - {'LICENSE'}
 

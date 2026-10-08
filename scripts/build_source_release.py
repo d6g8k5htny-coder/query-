@@ -1,5 +1,5 @@
 from __future__ import annotations
-import gzip,hashlib,io,json,subprocess,tarfile,tomllib
+import gzip,hashlib,io,json,os,stat,subprocess,tarfile,tomllib
 from pathlib import Path
 
 STATIC_NAMES=('pyproject.toml','README.md','AGENTS.md','research_query.py','catalog_entry_helper.py','verify_portable_stubs.py','LICENSE','CITATION.cff','SUPPORT.md','SECURITY.md','MANIFEST.in')
@@ -15,9 +15,21 @@ OFFLINE_TEST_NAMES=tuple('tests/'+name for name in (
 # LICENSE is the one optional member. Its absence is reported through
 # release_eligible; it is never a strict-membership failure.
 OPTIONAL_NAMES=('LICENSE',)
+# `git -C root` does not bind a command to root. An inherited GIT_DIR selects
+# another repository, whose commit would then be recorded, and an inherited
+# GIT_INDEX_FILE hides a staged change. Git's own list of repository-local
+# variables is `git rev-parse --local-env-vars`. No Git call below inherits
+# any of them, so repo_root alone names the repository. Four are kept on
+# purpose: GIT_CONFIG, GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT carry
+# settings such as safe.directory and select no repository, and
+# GIT_NO_REPLACE_OBJECTS can only make Git read the stored objects.
+REPOSITORY_ENV_NAMES=('GIT_DIR','GIT_WORK_TREE','GIT_IMPLICIT_WORK_TREE','GIT_COMMON_DIR','GIT_INDEX_FILE','GIT_OBJECT_DIRECTORY','GIT_ALTERNATE_OBJECT_DIRECTORIES','GIT_REPLACE_REF_BASE','GIT_GRAFT_FILE','GIT_SHALLOW_FILE','GIT_PREFIX')
+
+def _git_env()->dict:
+    return {name:value for name,value in os.environ.items() if name not in REPOSITORY_ENV_NAMES}
 
 def _git(root:Path,*args:str)->str:
-    p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False)
+    p=subprocess.run(['git','-C',str(root),*args],capture_output=True,text=True,timeout=10,check=False,env=_git_env())
     if p.returncode: raise ValueError('git command failed: '+(p.stderr or p.stdout).strip())
     return p.stdout.strip()
 
@@ -47,7 +59,7 @@ def _git_identity(root:Path,*args:str)->bytes:
     # Identity lookups must read the named commit's own objects. A refs/replace
     # entry would otherwise substitute another commit's tree while rev-parse
     # still reports the original commit.
-    p=subprocess.run(['git','--no-replace-objects','-C',str(root),*args],capture_output=True,timeout=10,check=False)
+    p=subprocess.run(['git','--no-replace-objects','-C',str(root),*args],capture_output=True,timeout=10,check=False,env=_git_env())
     if p.returncode: raise ValueError('git command failed: '+p.stderr.decode(errors='replace').strip())
     return p.stdout
 
@@ -68,6 +80,24 @@ def _check_commit_entries(root:Path,commit:str,names:list[str])->None:
 def _committed_bytes(root:Path,commit:str,rel:str)->bytes:
     return _git_identity(root,'cat-file','blob',commit+':'+rel)
 
+def _head_commit(root:Path)->str:
+    # `rev-parse HEAD` prints whatever HEAD names. That can be an annotated tag
+    # object, which status, ls-tree and cat-file all peel without a word, so a
+    # tag ID would be recorded as the commit. Ask for the commit itself, and
+    # refuse a HEAD that does not lead to one.
+    try: return _git_identity(root,'rev-parse','--verify','--quiet','HEAD^{commit}').decode().strip()
+    except ValueError: raise ValueError('HEAD does not name a commit') from None
+
+def _check_output_alias(output:Path)->None:
+    # Resolving the output path follows symbolic links, but it cannot see a hard
+    # link. An existing output that shares its file with another name would be
+    # truncated together with that name, and the other name can be a tracked
+    # file or .git/config inside the checkout. Refuse it instead of writing
+    # through it. An existing output with a single link is overwritten as before.
+    try: st=output.stat()
+    except OSError: return
+    if stat.S_ISREG(st.st_mode) and st.st_nlink>1: raise ValueError('output is a hard link to another file: '+str(output))
+
 def _tarinfo(name:str,data:bytes,epoch:int)->tarfile.TarInfo:
     ti=tarfile.TarInfo(name);ti.size=len(data);ti.mtime=int(epoch);ti.mode=0o644;ti.uid=ti.gid=0;ti.uname=ti.gname='';return ti
 
@@ -76,7 +106,7 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     if output.is_relative_to(root): raise ValueError('output must be outside repository')
     if not isinstance(source_date_epoch,int) or source_date_epoch<0: raise ValueError('invalid SOURCE_DATE_EPOCH')
     if _git(root,'status','--porcelain'): raise ValueError('working tree must be clean')
-    commit=_git(root,'rev-parse','HEAD')
+    commit=_head_commit(root)
     if len(commit)!=40: raise ValueError('exact commit required')
     # Strict mode selects once and validates membership before project metadata
     # is read, so a missing pyproject.toml is reported as a member. It then
@@ -105,6 +135,7 @@ def build_source_archive(repo_root:Path,output:Path,source_date_epoch:int,*,stri
     manifest_raw=(json.dumps(manifest,sort_keys=True,indent=2)+'\n').encode()
     build={'schema_version':'1.0','repository':'d6g8k5htny-coder/query-','commit':commit,'source_date_epoch':source_date_epoch,'builder':'universal-law-query-source-builder-v1'}
     build_raw=(json.dumps(build,sort_keys=True,indent=2)+'\n').encode()
+    _check_output_alias(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     with output.open('wb') as fh:
         with gzip.GzipFile(filename='',mode='wb',fileobj=fh,compresslevel=9,mtime=source_date_epoch) as gz:

@@ -42,6 +42,17 @@ metadata. Offline installation with `--no-build-isolation` requires those build
 tools to be installed already. These commands install local source, not a
 claimed PyPI release.
 
+Installing from the checkout, and the installation control in
+`tests/test_install_contract.py`, leave setuptools' `build/` and
+`src/universal_law_query.egg-info/` in the checkout. Both are listed in
+`.gitignore`, so `git status` stays clean, and the source dry-run builder (which
+selects tracked files only) is unaffected. They are not harmless: a file left
+in `build/lib/` (for example by an install from another commit) is installed by
+the next install even though `src/` does not contain it, and the installation
+control still passes. Remove them before installing:
+`git clean -fdX -- build src/universal_law_query.egg-info`. A fresh checkout,
+as in CI, has neither directory.
+
 The canonical implementation lives in `src/universal_law_query/`. Historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
 
 The wrapper and package CLI are parity-tested for stdout, stderr, exit status, lookup, verification and refusal paths.
@@ -96,7 +107,8 @@ are a missing capability, not permission to download them during an offline run.
 ## Extracted package archive: offline help and unit subset
 
 The custom source archive supports Python 3.11+ help and exactly five offline
-fixture-test modules (15 methods). Extract it outside the source checkout and
+fixture-test modules (15 methods). Build it as shown under
+[Source publication dry run](#source-publication-dry-run), extract it outside the source checkout and
 run from that extracted directory; local symlink creation is needed by one
 refusal fixture. No catalog, installation or network is needed for these checks:
 
@@ -131,6 +143,22 @@ candidate inputs does not establish coverage, even if it reports an empty
 verified list. Installation and installed-console verification remain separate
 from these offline source checks.
 
+To verify local bytes, pass a catalog and a workspace directory:
+
+```bash
+python -B -S research_query.py --registry <catalog.json> --verify --workspace <workspace-dir>
+```
+
+The workspace must hold every artifact the catalog lists at
+`<workspace-dir>/<repository>/<path>` (for example
+`Math-/coefficients/side24_v1/PROOF.md`), with exactly the catalog's `bytes` and
+`sha256`. Verification covers the whole supplied catalog and refuses with exit
+status 2 at the first missing, symlinked or mismatched file; `--verify` without
+`--workspace` also refuses with exit status 2. The public
+`meta-framework/registry.json` pins artifacts at many different commits, so one
+current checkout per repository is not guaranteed to satisfy it. A `verified`
+list means exact bytes only, not currentness or theorem acceptance.
+
 ## Candidate public catalog stubs
 
 `catalog_entry_helper.py` remains a compatibility wrapper for `universal_law_query.catalog_entry`. It refuses sandbox repositories, symlinks, unsafe paths and mutable commits. A printed stub is not catalog integration or theorem acceptance.
@@ -145,6 +173,16 @@ checkout. It builds the package archive described above with normalized metadata
 and embedded `SOURCE_MANIFEST.json` / `BUILD_INFO.json`, preserving tracked-only
 selection and public-file/symlink guards.
 
+In both modes the builder reads the repository at the checkout it is given. Its
+Git commands run without the inherited variables that select another repository,
+work tree, index or object store (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`
+and the others listed in the script), so such a variable cannot put another
+repository's commit into the manifest. The recorded `commit` is the commit that
+HEAD resolves to: a HEAD that names an annotated tag records the tagged commit,
+and a HEAD that leads to no commit is refused. An existing output file that has
+another hard link is refused as well, because writing through it would overwrite
+the file behind the other name, and that can be a file inside the checkout.
+
 For the complete package archive, call
 `build_source_archive(repo, output, epoch, strict_members=True)`. Strict mode
 compares the selected names with the curated lists and refuses before anything
@@ -158,6 +196,23 @@ normalization, a replaced commit or a symlink entry checked out as a plain file
 therefore cannot place other content under the recorded commit. The default
 call makes none of these checks; it stays permissive so that partial fixtures
 keep working, and it will write a smaller archive without an error.
+
+To build and extract the complete archive from a clean checkout:
+
+```bash
+python -B -S -c "import sys; from pathlib import Path; sys.path.insert(0, 'scripts'); from build_source_release import build_source_archive; print(build_source_archive(Path('.'), Path('../query-archive/source.tar.gz'), 1700000000, strict_members=True))"
+rm -rf ../query-archive/extracted
+mkdir -p ../query-archive/extracted
+tar -xzf ../query-archive/source.tar.gz -C ../query-archive/extracted
+cd ../query-archive/extracted
+```
+
+Then run the extracted-archive commands above from that directory. The extraction directory is recreated empty so stale files from an earlier run can't mask archive omissions. The builder
+refuses a dirty working tree and an output path inside the checkout; untracked
+`__pycache__/` directories count as dirty, so run earlier checkout commands with
+`-B`. The epoch argument (`1700000000` here) sets the archive timestamps and is
+recorded in `BUILD_INFO.json`; record it with the commit when comparing archive
+hashes.
 
 The repository uses the MIT license in [`LICENSE`](LICENSE). The current
 `release_eligible` field means that LICENSE is present in the selected payload
