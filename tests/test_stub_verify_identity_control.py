@@ -5,6 +5,7 @@ Positive cases: exact bytes are accepted (exit 0, every key reported as verified
 reject-everything implementation fails. Negative cases: assert the specific handled refusal --
 return code 2, stderr exactly 'REFUSED: identity mismatch for <key>', and no success report on
 stdout -- never just "some nonzero exit". Offline: fetch and candidate loading are injected.
+Length and digest are each isolated.
 """
 from __future__ import annotations
 import contextlib,hashlib,io,os,sys,unittest
@@ -48,6 +49,11 @@ class StubIdentityControl(unittest.TestCase):
     def test_wrong_length_is_refused(self):
         rows=[row('a',b'alpha\n')]
         self.assert_identity_refusal(*self.run_main(rows,{'a':b'alpha\n\n'}),'a')
+
+    def test_correct_digest_wrong_declared_length_is_refused(self):
+        # Correct digest, declared length off by one: only the length comparison can catch this.
+        item=row('a',b'alpha\n');item['bytes']=len(b'alpha\n')+1
+        self.assert_identity_refusal(*self.run_main([item],{'a':b'alpha\n'}),'a')
 
     # --- the root compatibility wrapper delegates the same contract ----------------------
     def test_root_wrapper_accepts_exact_and_refuses_substituted_bytes(self):
