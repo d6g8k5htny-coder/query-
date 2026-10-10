@@ -5,6 +5,15 @@ from pathlib import Path
 REPO_ROOT=Path(__file__).resolve().parents[2]
 PUBLIC_REPOS={'Math-','google-drive','governance-','main','meta-framework','query-','trial'}
 
+def _validate_downstream_snapshot(data:dict)->None:
+    """Bind Math rows to the declared snapshot, independently of byte equality."""
+    math_tip=data.get('math_tip')
+    if not isinstance(math_tip,str) or not re.fullmatch('[0-9a-f]{40}',math_tip):
+        raise SystemExit('REFUSED: downstream math_tip must be an exact lowercase commit')
+    for row in data['artifacts']:
+        if row.get('repository')=='Math-' and row.get('commit')!=math_tip:
+            raise SystemExit('REFUSED: downstream Math- commit must match math_tip for '+row.get('key','?'))
+
 def load_candidates(root: Path|None=None)->list[dict]:
     root=REPO_ROOT if root is None else Path(root)
     portable=root/'portable';rows=[]
@@ -13,6 +22,7 @@ def load_candidates(root: Path|None=None)->list[dict]:
     for bundle_path in sorted(portable.glob('CANDIDATE_*.json')):
         data=json.loads(bundle_path.read_text())
         if data.get('scientific_status_authority') is not False: raise SystemExit('REFUSED: candidate bundle must deny scientific authority: '+bundle_path.name)
+        if bundle_path.name=='CANDIDATE_DOWNSTREAM_GATE_STUBS.json': _validate_downstream_snapshot(data)
         rows.extend(data['artifacts'])
     seen=set();out=[]
     for row in rows:
@@ -42,6 +52,7 @@ def check_math_tip_drift(root:Path|None=None, *, fetch_raw_fn=None)->dict:
     bundle_path=root/'portable/CANDIDATE_DOWNSTREAM_GATE_STUBS.json'
     if not bundle_path.is_file(): return {'checked':[],'drifted':[],'math_tip_recorded':None}
     data=json.loads(bundle_path.read_text());drifted=[];checked=[]
+    _validate_downstream_snapshot(data)
     for row in data['artifacts']:
         validate_row(row)
         try: tip_raw=fetch_raw_fn(row['repository'],'main',row['path'],10000000)

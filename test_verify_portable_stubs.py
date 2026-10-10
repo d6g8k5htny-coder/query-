@@ -81,7 +81,7 @@ class VerifyPortableStubs(unittest.TestCase):
         payload = b'data'
         fake = {
             'scientific_status_authority': False,
-            'math_tip': 'tipsha',
+            'math_tip': '1' * 40,
             'artifacts': [self._gate_row(payload)],
         }
         with mock.patch.object(v, 'fetch_raw', return_value=payload):
@@ -94,7 +94,7 @@ class VerifyPortableStubs(unittest.TestCase):
     def test_math_tip_check_detects_drift(self):
         fake = {
             'scientific_status_authority': False,
-            'math_tip': 'tipsha',
+            'math_tip': '1' * 40,
             'artifacts': [self._gate_row(b'data')],
         }
         with mock.patch.object(v, 'fetch_raw', return_value=b'DIFF'):
