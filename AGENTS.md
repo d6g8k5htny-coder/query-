@@ -4,6 +4,18 @@ Read-only lookup and local byte verification against the meta-framework catalog.
 
 The 27 September 2026 owner stop is no longer in effect (Dylan Roy, 7 October 2026: remove the stop file; no agent needs to stop). Do not exit because of that historical stop.
 
+Cursor agents work only on request, do not self-assign repository changes, and
+arm no permanent windows, timers or loops, as recorded in the
+[5 October owner decision](https://github.com/d6g8k5htny-coder/main/blob/7c4cef8c6a2ca4b6f984e5e45108037c2caec4e1/governance/OWNER_DECISION_20261005_CURSOR.md).
+Follow the [current operating rules](https://github.com/d6g8k5htny-coder/main/blob/main/AGENTS.md)
+and [working contract](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-WORKFLOW-20260930.md).
+
+The [original stop text](https://github.com/d6g8k5htny-coder/query-/blob/aeffebc0ab984ff218b6f07d6f2a999ef4c6ca96/OWNER_STOP.md)
+is historical evidence; [PR #27](https://github.com/d6g8k5htny-coder/query-/pull/27)
+removed it from the current tree. This
+[prospective entry successor](https://github.com/d6g8k5htny-coder/query-/issues/25#issuecomment-6112349833)
+does not claim that issue #25's original file-preservation acceptance was met.
+
 ## Canonical code
 
 - Package: `src/universal_law_query/`
