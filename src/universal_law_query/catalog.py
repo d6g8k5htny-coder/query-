@@ -37,7 +37,7 @@ def load_catalog(path):
         key=row.get('key')
         if not isinstance(key,str) or not key or key in keys: raise CatalogError('missing or duplicate artifact key')
         keys.add(key)
-        if row.get('repository') not in repos: raise CatalogError('unknown repository')
+        if not isinstance(row.get('repository'),str) or row['repository'] not in repos: raise CatalogError('unknown repository')
         if repos[row['repository']]['visibility']!='public' or row.get('visibility')!='public': raise CatalogError('private artifacts cannot enter this public catalog')
         valid_path(row.get('path'))
         if not isinstance(row.get('commit'),str) or not re.fullmatch('[0-9a-f]{40}',row['commit']): raise CatalogError('exact commit required')
