@@ -29,6 +29,8 @@ def resolve_commit(file_path: Path, explicit: str|None) -> str:
         return explicit
     try:
         proc=subprocess.run(['git','-C',str(file_path.parent),'log','-1','--format=%H','--',file_path.name],capture_output=True,text=True,timeout=10,check=False)
+    except subprocess.TimeoutExpired as error:
+        raise HelperError('git commit lookup timed out') from error
     except OSError as error:
         raise HelperError('git commit lookup failed: '+str(error)) from error
     commit=(proc.stdout or '').strip()
