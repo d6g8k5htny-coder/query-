@@ -34,6 +34,7 @@ class CatalogEntryTimeoutTests(unittest.TestCase):
             ['git', '-C', str(self.payload.parent), 'log', '-1',
              '--format=%H', '--', self.payload.name],
             capture_output=True, text=True, timeout=10, check=False,
+            env=helper._git_env(),
         )
 
     def test_timeout_becomes_helper_error_with_original_cause(self):
