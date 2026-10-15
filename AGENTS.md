@@ -15,6 +15,14 @@ alongside the live operating rules, and carry this single canonical link into
 future agent and model handoffs. This dated record does not expand platform
 access or change privacy, scientific acceptance, or required review/check gates.
 
+For new coordination, use the [active Agent Message Board #419](https://github.com/d6g8k5htny-coder/main/issues/419)
+and the [task and architecture discussion #275](https://github.com/d6g8k5htny-coder/main/issues/275).
+The preceding boards [#307](https://github.com/d6g8k5htny-coder/main/issues/307) and
+[#229](https://github.com/d6g8k5htny-coder/main/issues/229) remain readable historical
+records; [#229 working guidance](https://github.com/d6g8k5htny-coder/main/issues/229#issuecomment-6038554880)
+still applies. This route does not transfer claims or bypass task-local custody,
+required review, protection, security or scientific evidence.
+
 The [original stop text](https://github.com/d6g8k5htny-coder/query-/blob/aeffebc0ab984ff218b6f07d6f2a999ef4c6ca96/OWNER_STOP.md)
 is historical evidence; [PR #27](https://github.com/d6g8k5htny-coder/query-/pull/27)
 removed it from the current tree. This
