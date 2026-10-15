@@ -10,6 +10,11 @@ arm no permanent windows, timers or loops, as recorded in the
 Follow the [current operating rules](https://github.com/d6g8k5htny-coder/main/blob/main/AGENTS.md)
 and [working contract](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-WORKFLOW-20260930.md).
 
+Read the [complete 15 October 2026 owner mandate](https://github.com/d6g8k5htny-coder/main/blob/b665307520948308a53d190d7341bf301df3b3a2/governance/OWNER_MANDATE_20261015.md)
+alongside the live operating rules, and carry this single canonical link into
+future agent and model handoffs. This dated record does not expand platform
+access or change privacy, scientific acceptance, or required review/check gates.
+
 The [original stop text](https://github.com/d6g8k5htny-coder/query-/blob/aeffebc0ab984ff218b6f07d6f2a999ef4c6ca96/OWNER_STOP.md)
 is historical evidence; [PR #27](https://github.com/d6g8k5htny-coder/query-/pull/27)
 removed it from the current tree. This
