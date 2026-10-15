@@ -1,11 +1,23 @@
 from __future__ import annotations
-import argparse,hashlib,json,re,subprocess,sys
+import argparse,hashlib,json,os,re,subprocess,sys
 from pathlib import Path,PurePosixPath
 
 class HelperError(ValueError):
     pass
 
 PUBLIC_REPOS={'Math-','google-drive','governance-','main','meta-framework','query-','trial'}
+
+# Match scripts/build_source_release.py's repository-routing exclusions without
+# importing a checkout-only module. Preserve other settings (e.g. safe.directory);
+# this does not authenticate candidate bytes or a supplied repository label.
+REPOSITORY_ENV_NAMES=(
+    'GIT_DIR','GIT_WORK_TREE','GIT_IMPLICIT_WORK_TREE','GIT_COMMON_DIR',
+    'GIT_INDEX_FILE','GIT_OBJECT_DIRECTORY','GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_REPLACE_REF_BASE','GIT_GRAFT_FILE','GIT_SHALLOW_FILE','GIT_PREFIX',
+)
+
+def _git_env()->dict:
+    return {name:value for name,value in os.environ.items() if name not in REPOSITORY_ENV_NAMES}
 
 def valid_repo_path(text: str) -> PurePosixPath:
     if not isinstance(text,str) or not text or '\\' in text or ':' in text: raise HelperError('unsafe path')
@@ -28,7 +40,7 @@ def resolve_commit(file_path: Path, explicit: str|None) -> str:
         if not re.fullmatch('[0-9a-f]{40}',explicit): raise HelperError('exact commit required')
         return explicit
     try:
-        proc=subprocess.run(['git','-C',str(file_path.parent),'log','-1','--format=%H','--',file_path.name],capture_output=True,text=True,timeout=10,check=False)
+        proc=subprocess.run(['git','-C',str(file_path.parent),'log','-1','--format=%H','--',file_path.name],capture_output=True,text=True,timeout=10,check=False,env=_git_env())
     except subprocess.TimeoutExpired as error:
         raise HelperError('git commit lookup timed out') from error
     except OSError as error:
