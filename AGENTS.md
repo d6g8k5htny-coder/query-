@@ -11,9 +11,11 @@ Follow the [current operating rules](https://github.com/d6g8k5htny-coder/main/bl
 and [working contract](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-WORKFLOW-20260930.md).
 
 Read the [complete 15 October 2026 owner mandate](https://github.com/d6g8k5htny-coder/main/blob/b665307520948308a53d190d7341bf301df3b3a2/governance/OWNER_MANDATE_20261015.md)
-alongside the live operating rules, and carry this single canonical link into
-future agent and model handoffs. This dated record does not expand platform
-access or change privacy, scientific acceptance, or required review/check gates.
+alongside the [standing owner delegation](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-AUTONOMY-20260923-v2.1.md)
+and the live operating rules. Carry both canonical links into future agent and
+model handoffs. A published link does not prove recipient reading, and neither
+instruction expands platform access or changes privacy, scientific acceptance,
+or required review/check gates.
 
 For new coordination, use the [active Agent Message Board #419](https://github.com/d6g8k5htny-coder/main/issues/419)
 and the [task and architecture discussion #275](https://github.com/d6g8k5htny-coder/main/issues/275).
