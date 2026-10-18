@@ -24,14 +24,19 @@ def load_candidates(root: Path|None=None)->list[dict]:
         if data.get('scientific_status_authority') is not False: raise SystemExit('REFUSED: candidate bundle must deny scientific authority: '+bundle_path.name)
         if bundle_path.name=='CANDIDATE_DOWNSTREAM_GATE_STUBS.json': _validate_downstream_snapshot(data)
         rows.extend(data['artifacts'])
+    # The standalone RN stub is also present in a public bundle with a
+    # different commentary note. Notes are not consumed by the verifier.
+    # Every other field, including unknown future fields, must agree.
+    def verifying_fields(item):
+        return {name:value for name,value in item.items() if name!='note'}
     seen={};out=[]
     for row in rows:
         key=row['key']
         if key in seen:
-            # The single-file stub is intentionally repeated in one public bundle.
-            # Only exact duplicates may be collapsed: conflicting descriptors
-            # must not evade the later fetch, digest and byte-count checks.
-            if row!=seen[key]: raise SystemExit('REFUSED: conflicting candidate key: '+str(key))
+            # Refuse conflicting identities, access or scopes before any fetch;
+            # preserve the first source annotation for note-only repeats.
+            if verifying_fields(row)!=verifying_fields(seen[key]):
+                raise SystemExit('REFUSED: conflicting candidate key: '+str(key))
             continue
         seen[key]=row;out.append(row)
     return out
