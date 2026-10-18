@@ -24,11 +24,16 @@ def load_candidates(root: Path|None=None)->list[dict]:
         if data.get('scientific_status_authority') is not False: raise SystemExit('REFUSED: candidate bundle must deny scientific authority: '+bundle_path.name)
         if bundle_path.name=='CANDIDATE_DOWNSTREAM_GATE_STUBS.json': _validate_downstream_snapshot(data)
         rows.extend(data['artifacts'])
-    seen=set();out=[]
+    seen={};out=[]
     for row in rows:
         key=row['key']
-        if key in seen: continue
-        seen.add(key);out.append(row)
+        if key in seen:
+            # The single-file stub is intentionally repeated in one public bundle.
+            # Only exact duplicates may be collapsed: conflicting descriptors
+            # must not evade the later fetch, digest and byte-count checks.
+            if row!=seen[key]: raise SystemExit('REFUSED: conflicting candidate key: '+str(key))
+            continue
+        seen[key]=row;out.append(row)
     return out
 
 def validate_row(row:dict)->None:
