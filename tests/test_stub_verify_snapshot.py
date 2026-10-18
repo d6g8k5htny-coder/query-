@@ -158,15 +158,30 @@ class DownstreamSnapshotTests(unittest.TestCase):
             'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
         self.assertEqual(verifier.load_candidates(self.root), [original])
 
+    def test_note_only_duplicate_is_not_identity_conflict(self):
+        original = row('shared')
+        original['note'] = 'Historical standalone commentary; candidate only.'
+        second = dict(original)
+        second['note'] = 'Bundle commentary; candidate only.'
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [original, second]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        # The first annotation is kept; neither annotation is an acceptance.
+        self.assertEqual(verifier.load_candidates(self.root), [original])
+
     def test_conflicting_candidate_duplicates_in_one_bundle_are_refused(self):
         original = row('duplicate')
+        original['scope'] = 'same declared scope'
         # Each record is individually well-formed; the conflict must not be
         # ignored simply because a valid first occurrence has already been seen.
         changes = (
             ('commit', OLDER), ('sha256', '0' * 64),
             ('bytes', len(PAYLOAD) + 1),
             ('path', 'frontiers/example/another.md'),
-            ('visibility', 'private'))
+            ('visibility', 'private'),
+            ('scope', 'conflicting scope'),
+            ('unlisted_future_field', 'unexpected distinct value'))
         for field, value in changes:
             with self.subTest(field=field):
                 conflicting = dict(original)
