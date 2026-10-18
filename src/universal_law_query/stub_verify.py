@@ -29,13 +29,24 @@ def load_candidates(root: Path|None=None)->list[dict]:
     # Every other field, including unknown future fields, must agree.
     def verifying_fields(item):
         return {name:value for name,value in item.items() if name!='note'}
+    def same_json_value(left, right):
+        # JSON booleans and numbers are distinct even though Python says
+        # True == 1 == 1.0. Compare types recursively, including future keys.
+        if type(left) is not type(right): return False
+        if isinstance(left, dict):
+            return left.keys()==right.keys() and all(
+                same_json_value(left[key],right[key]) for key in left)
+        if isinstance(left, list):
+            return len(left)==len(right) and all(
+                same_json_value(a,b) for a,b in zip(left,right))
+        return left==right
     seen={};out=[]
     for row in rows:
         key=row['key']
         if key in seen:
             # Refuse conflicting identities, access or scopes before any fetch;
             # preserve the first source annotation for note-only repeats.
-            if verifying_fields(row)!=verifying_fields(seen[key]):
+            if not same_json_value(verifying_fields(row),verifying_fields(seen[key])):
                 raise SystemExit('REFUSED: conflicting candidate key: '+str(key))
             continue
         seen[key]=row;out.append(row)

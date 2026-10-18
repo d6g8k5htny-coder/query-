@@ -213,6 +213,48 @@ class DownstreamSnapshotTests(unittest.TestCase):
                 fetch_fn=fetch)
         fetch.assert_not_called()
 
+    def test_duplicate_json_type_collisions_refused_before_fetch(self):
+        # JSON distinguishes true, 1 and 1.0; Python dict equality does not.
+        # Unknown nested future fields are identity-bearing, except 'note'.
+        changes = (
+            ('integer_vs_boolean', 1, True),
+            ('integer_vs_float', 1, 1.0),
+            ('nested_integer_vs_boolean',
+             {'items': [{'ordinal': 1}]},
+             {'items': [{'ordinal': True}]}),
+        )
+        for name, left, right in changes:
+            with self.subTest(name=name):
+                original = row('typed')
+                original['unlisted_future_field'] = left
+                conflicting = dict(original)
+                conflicting['unlisted_future_field'] = right
+                self.write_bundle(
+                    {'scientific_status_authority': False,
+                     'artifacts': [original, conflicting]},
+                    'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+                fetch = mock.Mock()
+                with mock.patch.dict(os.environ, {'QUERY_STUB_VERIFY': '1'}), \
+                        self.assertRaisesRegex(
+                            SystemExit, 'REFUSED: conflicting candidate key: typed'):
+                    verifier.main(
+                        [], load_candidates_fn=lambda: verifier.load_candidates(self.root),
+                        fetch_fn=fetch)
+                fetch.assert_not_called()
+
+    def test_duplicate_bool_byte_count_does_not_equal_integer(self):
+        original = row('typed-size')
+        original['bytes'] = 1
+        conflicting = dict(original)
+        conflicting['bytes'] = True
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [original, conflicting]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        with self.assertRaisesRegex(
+                SystemExit, 'REFUSED: conflicting candidate key: typed-size'):
+            verifier.load_candidates(self.root)
+
     def test_current_checkout_retains_ten_unique_candidate_keys(self):
         keys = [item['key'] for item in verifier.load_candidates(ROOT)]
         self.assertEqual(len(keys), 10)
