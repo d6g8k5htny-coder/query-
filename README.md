@@ -53,10 +53,16 @@ next install even though `src/` does not contain it, and a stale `SOURCES.txt`
 in the egg-info directory would otherwise add package data; the installation
 control above cannot see either. The checkout's `setup.py` therefore refuses to
 build when `build/lib/` holds anything this source tree did not produce
-(`REFUSED: stale build output …`, naming the files), and `pyproject.toml`
-declares that the package ships no package data. Nothing is deleted for you;
-remove the leftovers before installing:
-`git clean -fdX -- build src/universal_law_query.egg-info`.
+(`REFUSED: stale build output …`, naming the files), before copying anything
+and again afterwards; every symlink under `build/lib/` is refused wherever it
+points, because the wheel staging step would follow it. The wheel command
+refuses a leftover staging tree under `build/bdist.*/wheel/` (an interrupted
+build leaves one) and repeats the `build/lib/` check, so `--skip-build` cannot
+bypass it. The egg-info manifest is regenerated from the tree and a stale
+`SOURCES.txt` is never read back, so it can add a file neither to a wheel nor
+to a `setup.py sdist` archive; `pyproject.toml` also declares that the package
+ships no package data. Nothing is deleted for you; remove the leftovers before
+installing: `git clean -fdX -- build src/universal_law_query.egg-info`.
 `tests/test_install_provenance.py` installs temporary copies of the checkout,
 clean and deliberately contaminated, and checks that the installed files are
 exactly the tracked package files. A fresh checkout, as in CI, has neither
@@ -64,10 +70,13 @@ directory. An untracked `.py` module placed directly in `src/universal_law_query
 is source, not a leftover, and is installed like any other module; other
 untracked files there are not installed, because the package declares no
 package data, except the typing files setuptools always includes (`py.typed`,
-`*.pyi`). The direct `python setup.py build_py --compile` path counts the
-bytecode it writes in the same run as its own output; it admits those cache
-paths by name, so a file already sitting at one of them is not refused there
-(a following `pip install` still refuses it). Editable
+`*.pyi`). The build rewrites every file it produces and then compares each
+module's bytes with its source, so a file already sitting at a path this build
+writes (a module from another commit, or bytecode under `--compile`) is
+replaced, never shipped; `setup.py bdist_wheel --skip-build` compares instead
+of rebuilding and refuses differing bytes. A refusal in a custom `--build-lib`
+directory names that directory, since the `git clean` remedy reaches only the
+checkout's `build/`. Editable
 installs (`pip install -e`) run from `src/` and are unaffected. The custom
 source archive below does not carry `setup.py`; it has no leftovers of its own,
 and installation from it is not one of its offline checks.
