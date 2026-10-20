@@ -96,6 +96,17 @@ def direct_setup(checkout: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=PIP_TIMEOUT)
 
 
+def setup_with_preamble(checkout: Path, preamble: str, *args: str) -> subprocess.CompletedProcess:
+    # Runs setup.py in-process after ``preamble``, for conditions this host
+    # cannot create (a Windows junction), simulated where setup.py observes them.
+    code = (preamble + '\nimport runpy, sys\nsys.argv = ' + repr(['setup.py', *args])
+            + "\nrunpy.run_path('setup.py', run_name='__main__')\n")
+    env = dict(os.environ)
+    env['PYTHONDONTWRITEBYTECODE'] = '1'
+    return subprocess.run([sys.executable, '-c', code], cwd=checkout, env=env,
+                          capture_output=True, text=True, timeout=PIP_TIMEOUT)
+
+
 def wheel_staging_dir(checkout: Path) -> Path:
     # The directory bdist_wheel stages the archive in (``build/bdist.<platform>/wheel``),
     # asked of setuptools itself so the platform tag matches the build's.
@@ -296,6 +307,122 @@ class InstallProvenance(unittest.TestCase):
         eggs = sorted(dist.glob('*.egg'))
         self.assertEqual(len(eggs), 1, eggs)
         self.assertEqual(wheel_package_files(eggs[0]), tracked_source_files())
+
+    def test_stale_bdist_dumb_and_rpm_staging_trees_are_refused(self):
+        # Every bdist command stages under build/bdist.<platform>; the dumb
+        # archive is that pseudo-installation tree as found, and rpmbuild works
+        # from the rpm tree, so a leftover under the shared base is refused by
+        # each of them before anything is assembled.
+        base = wheel_staging_dir(self.checkout).parent
+        staged = base / 'dumb' / 'private' / 'stale.txt'
+        staged.parent.mkdir(parents=True)
+        staged.write_text('STALE\n', encoding='utf-8')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_dumb', '--format', 'zip', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the dumb build must fail closed on a staging leftover')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(staged.relative_to(self.checkout).as_posix(), output)
+        self.assertEqual(sorted(dist.glob('*')) if dist.exists() else [], [])
+        self.assertTrue(staged.is_file(), 'the leftover is reported, not deleted')
+        # The same leftover blocks the other bdist commands, which share the base.
+        result = direct_setup(self.checkout, 'bdist_rpm', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(staged.relative_to(self.checkout).as_posix(), output)
+        self.assertNotIn('rpmbuild', output, 'the refusal must come before rpmbuild is involved')
+        result = self.wheel()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(staged.relative_to(self.checkout).as_posix(), result.stdout + result.stderr)
+        # A clean dumb build is not refused.
+        shutil.rmtree(base)
+        result = direct_setup(self.checkout, 'bdist_dumb', '--format', 'zip', '--dist-dir', str(dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(sorted(dist.glob('*.zip'))), 1)
+
+    def test_windows_junctions_are_treated_as_symlinks(self):
+        # A Windows junction is not reported by os.path.islink; Python 3.12+
+        # reports it through os.path.isjunction and every supported version
+        # through the reparse tag on os.lstat. Neither exists here, so both are
+        # simulated for one real directory: an empty build/lib/<package> that
+        # a junction to an outside directory would look like, and that build_py
+        # would otherwise write every module into.
+        junction = self.checkout / 'build' / 'lib' / PACKAGE
+        junction.mkdir(parents=True)
+        target = os.path.normcase(os.path.abspath(junction))
+        via_isjunction = ('import os\n_t = ' + repr(target) + '\n'
+                          'os.path.isjunction = lambda p: os.path.normcase(os.path.abspath(p)) == _t\n')
+        via_reparse_tag = (
+            'import os\n_t = ' + repr(target) + '\n_real = os.lstat\n'
+            'class _S:\n'
+            '    def __init__(self, r):\n'
+            '        self._r = r\n'
+            '        self.st_reparse_tag = 0xA0000003\n'
+            '    def __getattr__(self, n):\n'
+            '        return getattr(self._r, n)\n'
+            'def _lstat(p, *a, **k):\n'
+            '    r = _real(p, *a, **k)\n'
+            '    if isinstance(p, str) and os.path.normcase(os.path.abspath(p)) == _t:\n'
+            '        return _S(r)\n'
+            '    return r\n'
+            'os.lstat = _lstat\n'
+            "if hasattr(os.path, 'isjunction'):\n"
+            '    del os.path.isjunction\n')
+        for preamble in (via_isjunction, via_reparse_tag):
+            result = setup_with_preamble(self.checkout, preamble, 'build_py')
+            output = result.stdout + result.stderr
+            self.assertNotEqual(result.returncode, 0, 'a junction must be refused like a symlink')
+            self.assertIn('REFUSED: stale build output', output)
+            self.assertIn('build/lib/' + PACKAGE + ' (junction)', output)
+            self.assertEqual(sorted(junction.iterdir()), [], 'nothing may be written through the junction')
+        # A junction among the package sources is refused before any copy.
+        shutil.rmtree(self.checkout / 'build')
+        source = os.path.normcase(os.path.abspath(self.checkout / SOURCE_DIR))
+        result = setup_with_preamble(
+            self.checkout, via_isjunction.replace(repr(target), repr(source)), 'build_py')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('REFUSED: symlinked source', output)
+        self.assertIn('src/' + PACKAGE + ' (junction)', output)
+        self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE).exists())
+        # Without any simulated junction the same direct build is accepted.
+        result = setup_with_preamble(self.checkout, 'import os', 'build_py')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_pre_generated_dist_info_is_validated(self):
+        # ``bdist_wheel --dist-info-dir`` copies the given directory into the
+        # wheel as is (pip's build hook passes the one it generated), so it must
+        # hold only what this build's own metadata conversion would produce.
+        meta = self.base / 'meta'
+        meta.mkdir()
+        generated = direct_setup(self.checkout, 'dist_info', '--output-dir', str(meta))
+        self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+        dist_infos = sorted(meta.glob('*.dist-info'))
+        self.assertEqual(len(dist_infos), 1, dist_infos)
+        dist_info = dist_infos[0]
+        self.assertTrue((dist_info / 'METADATA').is_file())
+        planted = dist_info / 'private.txt'
+        planted.write_text('private\n', encoding='utf-8')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a pre-generated dist-info with an extra file must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(os.path.relpath(planted, self.checkout).replace(os.sep, '/'), output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+        self.assertTrue(planted.is_file(), 'the leftover is reported, not deleted')
+        # The directory as generated is accepted, and the wheel carries exactly it.
+        planted.unlink()
+        result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        wheels = sorted(dist.glob('*.whl'))
+        self.assertEqual(len(wheels), 1, wheels)
+        self.assertEqual(wheel_package_files(wheels[0]), tracked_source_files())
+        with zipfile.ZipFile(wheels[0]) as archive:
+            shipped = sorted(name.split('/', 1)[1] for name in archive.namelist()
+                             if name.startswith(dist_info.name + '/'))
+        self.assertNotIn('private.txt', shipped)
+        self.assertIn('METADATA', shipped)
 
     def test_hard_linked_build_outputs_are_refused(self):
         # A hard link at a produced path shares its bytes with another file.
@@ -689,6 +816,14 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn('elsewhere/' + PACKAGE + '/__init__.py (missing)', output)
         self.assertIn('under elsewhere', output)
         self.assertEqual(installed_files(self.target), [], 'nothing may be installed after a refusal')
+        # Without --skip-build the build rewrites build/lib, but the copy still
+        # comes from the named directory, which must be validated just the same.
+        result = direct_setup(self.checkout, 'install_lib', '--build-dir', 'elsewhere',
+                              '--install-dir', str(self.target))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the copied-from directory must be validated after a build too')
+        self.assertIn('elsewhere/' + PACKAGE + '/stale.py', output)
+        self.assertEqual(installed_files(self.target), [])
         result = direct_setup(self.checkout, 'install_lib', '--skip-build', '--build-dir', 'build/lib',
                               '--install-dir', str(self.target))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

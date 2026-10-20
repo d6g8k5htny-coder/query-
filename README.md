@@ -60,26 +60,30 @@ among the package sources in `src/`, because the copy would ship its target.
 Bytecode under `build/lib/` is accepted only from the run that compiles it
 (`build_py --compile` with bytecode writing enabled); a cache file found by a
 run that does not recompile it, such as `--skip-build` or a build under
-`python -B`, is refused. The wheel command refuses a leftover staging tree
-under `build/bdist.*/wheel/` (an interrupted build leaves one) and repeats the
+`python -B`, is refused. Every `bdist` command (`bdist_wheel`, `bdist_egg`,
+`bdist_dumb`, `bdist_rpm`) refuses a leftover anywhere under the shared
+`build/bdist.*/` base (an interrupted build leaves one), the wheel command
+also refuses a pre-generated `--dist-info-dir` holding anything its own
+metadata conversion would not produce, and the wheel command repeats the
 `build/lib/` check, so `--skip-build` cannot bypass it; with `--skip-build`
 every expected output must be present with the bytes of its source. The
-legacy `install`, `install_lib` and `bdist_egg` commands with `--skip-build`
-run the same check. The egg-info manifest is regenerated from the tree and a
+legacy `install`, `install_lib` and `bdist_egg` commands run the same check
+on the directory `install_lib` copies from (`--build-dir`), with or without
+`--skip-build`. The egg-info manifest is regenerated from the tree and a
 stale `SOURCES.txt` is never read back, so it can add a file neither to a wheel
 nor to a `setup.py sdist` archive; any other file left in the egg-info
 directory is refused, because an sdist and a direct `bdist_wheel` would copy
 it into the archive, and so is a leftover sdist release tree
-(`universal_law_query-0.1.0/`), which an sdist would archive whole, a
-symlink among the files an sdist's manifest names, and a leftover
-`bdist_egg` staging tree under `build/bdist.*/egg/`. A symlink or hard link
-in or at the egg-info directory, a hard link under `build/lib/`, or a
-symlinked `build/`, is refused before anything is written, because
-setuptools' metadata writers and build copies would otherwise overwrite, or
-share bytes with, whatever the link points at (an sdist kept with
-`--keep-temp` hard-links the egg-info files into its release tree, which is
-itself refused; remove that tree first). A `--dry-run` build writes nothing
-and is not refused for that; leftovers are still refused.
+(`universal_law_query-0.1.0/`), which an sdist would archive whole, and a
+symlink among the files an sdist's manifest names. A symlink or hard link
+in or at the egg-info directory, or a symlinked `build/`, is refused before
+anything is written, because setuptools' metadata writers and build copies
+would otherwise write through to whatever the link points at. A hard link
+under `build/lib/` is refused because its bytes are shared with another path,
+so the tree is not this build's output; the build copy itself unlinks its
+destination before writing and does not write through. A Windows junction
+counts as a symlink throughout. A `--dry-run` build writes nothing and is not
+refused for that; leftovers are still refused.
 `pyproject.toml` also declares that the package ships no package data. Nothing
 is deleted for you; remove the leftovers before installing:
 `git clean -fdX -- build src/universal_law_query.egg-info`.
