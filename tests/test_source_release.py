@@ -832,6 +832,7 @@ class ArchiveRefusalPins(unittest.TestCase):
                 target = self.repo / 'SUPPORT.md' / inner
                 target.parent.mkdir(parents=True)
                 target.write_text('synthetic descendant\n')
+                self.git('add', '-f', '--', target.relative_to(self.repo).as_posix())
                 self.commit('descendant ' + inner)
                 try:
                     with self.assertRaisesRegex(ValueError, '^' + pattern):
@@ -862,13 +863,18 @@ class ArchiveRefusalPins(unittest.TestCase):
     def test_failed_git_command_is_reported(self):
         plain = self.base / 'not-a-repository'
         plain.mkdir()
-        with self.assertRaisesRegex(ValueError, '^git command failed'):
-            build_source_archive(plain, self.out, 1700000000)
+        with mock.patch.dict(os.environ, {'GIT_CEILING_DIRECTORIES': str(self.base)}):
+            with self.assertRaisesRegex(ValueError, '^git command failed'):
+                build_source_archive(plain, self.out, 1700000000)
 
     def test_non_sha1_commit_is_refused(self):
         repo = self.base / 'sha256-checkout'
         repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '--object-format=sha256', str(repo)], check=True)
+        init = subprocess.run(
+            ['git', 'init', '-q', '--object-format=sha256', str(repo)],
+            capture_output=True, text=True, check=False)
+        if init.returncode:
+            self.skipTest('Git does not support SHA-256 repositories')
         for name in sorted(ARCHIVE_PAYLOADS):
             path = repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
