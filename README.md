@@ -63,11 +63,13 @@ run that does not recompile it, such as `--skip-build` or a build under
 `python -B`, is refused. Every `bdist` command (`bdist_wheel`, `bdist_egg`,
 `bdist_dumb`, `bdist_rpm`) refuses a leftover in its own staging tree under
 `build/bdist.*/`, which it archives as found (an interrupted build leaves
-one). It does not refuse a tree kept by an earlier command of the same run, as
-`bdist` does between two formats, because that tree is the run's own output.
-For `bdist_rpm`, the spec and source archive that every run rewrites, and a
+one). It does not refuse a tree that the same command kept earlier in the
+same run, as `bdist` does between two formats, because that tree is the
+command's own output; a spec-only `bdist_rpm` keeps nothing. For `bdist_rpm`,
+the spec, source archive and icon that every full run rewrites, and a
 successful run leaves behind, are not leftovers. A sibling command's tree is
-never read. The wheel and editable-wheel commands also refuse a
+never read, and a named pipe or other special file in any tree is refused. The
+wheel and editable-wheel commands also refuse a
 pre-generated `--dist-info-dir` that differs in any name or byte from this
 build's own metadata, which a separate `setup.py dist_info` run regenerates
 for the comparison (`REFUSED: pre-generated metadata …`), and the wheel
@@ -95,9 +97,11 @@ with another path, so the tree is not this build's output; the build copy
 itself unlinks its destination before writing and does not write through. A
 Windows junction counts as a symlink throughout. A `--dry-run` build (an option
 setuptools 81 removed) writes nothing and is not refused for that; leftovers
-are still refused. An editable
-install copies nothing and runs from `src/`. The output directory (`dist/` or
-`--dist-dir`) is taken as given.
+are still refused. An editable install copies nothing and runs from `src/`;
+the editable-wheel command still refuses a symlinked `build/`, where a strict
+editable build keeps its link tree. The output directory (`dist/` or
+`--dist-dir`) is taken as given, as are inputs an option names explicitly,
+such as `bdist_rpm --icon`.
 `pyproject.toml` also declares that the package ships no package data. Nothing
 is deleted for you; remove the leftovers before installing:
 `git clean -fdX -- build src/universal_law_query.egg-info`.

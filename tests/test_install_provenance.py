@@ -369,12 +369,84 @@ class InstallProvenance(unittest.TestCase):
         result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--dist-dir', str(spec_dir))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(sorted(path.name for path in spec_dir.iterdir()), ['universal-law-query.spec'])
+        # The icon an earlier --icon run copied into SOURCES is rewritten too.
+        icon = self.base / 'icon.xpm'
+        icon.write_text('/* XPM */\n', encoding='utf-8')
+        (rpm / 'SOURCES' / 'icon.xpm').write_text('/* earlier XPM */\n', encoding='utf-8')
+        result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--icon', str(icon), '--dist-dir', str(spec_dir))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         stale = rpm / 'SOURCES' / 'private.txt'
         stale.write_text('PRIVATE\n', encoding='utf-8')
         result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--dist-dir', str(spec_dir))
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'another file in the rpm tree is a leftover')
         self.assertIn(stale.relative_to(self.checkout).as_posix(), output)
+
+    def test_a_kept_tree_is_admitted_only_to_the_command_that_kept_it(self):
+        # bdist keeps a tree between two formats of one command. Another
+        # command in the same run does not archive it, and a spec-only rpm run
+        # rewrites nothing in its tree, so neither may pass on what it found.
+        staging = wheel_staging_dir(self.checkout)
+        planted = staging / 'SOURCES' / 'universal_law_query-0.1.0.tar.gz'
+        planted.parent.mkdir(parents=True)
+        planted.write_bytes(b'FOREIGN\n')
+        dist = self.base / 'dist'
+        dist.mkdir()
+        result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--keep-temp',
+                              '--rpm-base', staging.relative_to(self.checkout).as_posix(),
+                              '--dist-dir', str(dist), 'bdist_wheel', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a spec-only run may not vouch for what it found')
+        self.assertIn(planted.relative_to(self.checkout).as_posix(), output)
+        self.assertEqual(sorted(dist.glob('*.whl')), [])
+        shutil.rmtree(staging.parent)
+        result = direct_setup(self.checkout, 'bdist_dumb', '--keep-temp', '--bdist-dir', 'shared',
+                              '--dist-dir', str(dist), 'bdist_wheel', '--bdist-dir', 'shared', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, "another command's kept tree is not this command's output")
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertEqual(sorted(dist.glob('*.whl')), [])
+
+    def test_non_regular_files_in_a_staging_tree_are_refused(self):
+        # A named pipe or other special file is not build output, and a write
+        # or archive step that opens it can hang or read another process's bytes.
+        if not hasattr(os, 'mkfifo'):
+            self.skipTest('named pipes are not available here')
+        fifo = wheel_staging_dir(self.checkout) / PACKAGE / 'pipe'
+        fifo.parent.mkdir(parents=True)
+        os.mkfifo(fifo)
+        result = direct_setup(self.checkout, 'bdist_wheel', '--dist-dir', str(self.wheels))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(fifo.relative_to(self.checkout).as_posix() + ' (not a regular file)', output)
+        # Also at a name bdist_rpm admits because every run rewrites it: the
+        # spec write would block on the pipe.
+        spec = wheel_staging_dir(self.checkout).parent / 'rpm' / 'SPECS' / 'universal-law-query.spec'
+        spec.parent.mkdir(parents=True)
+        os.mkfifo(spec)
+        result = direct_setup(self.checkout, 'bdist_rpm', '--dist-dir', str(self.base / 'dist'))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(spec.relative_to(self.checkout).as_posix() + ' (not a regular file)', output)
+
+    def test_strict_editable_build_refuses_a_symlinked_build_directory(self):
+        # A strict editable install empties and fills its link tree under
+        # build/; through a symlinked build/ setuptools would empty the
+        # link's target.
+        outside = self.base / 'outside_build'
+        keep = outside / ('__editable__.' + PACKAGE + '-0.1.0-py3-none-any') / 'keepme.txt'
+        keep.parent.mkdir(parents=True)
+        keep.write_text('KEEP\n', encoding='utf-8')
+        try:
+            os.symlink(outside, self.checkout / 'build', target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'editable_wheel', '--mode', 'strict', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked build/ must be refused for a strict editable build')
+        self.assertIn('build (symlink)', output)
+        self.assertEqual(keep.read_text(encoding='utf-8'), 'KEEP\n', 'nothing may be emptied through the link')
 
     def test_windows_junctions_are_treated_as_symlinks(self):
         # A Windows junction is not reported by os.path.islink; Python 3.12+
@@ -495,6 +567,18 @@ class InstallProvenance(unittest.TestCase):
             refused('a ' + kind + 'ed entry', top_level, ' (' + kind + ')')
             top_level.unlink()
         top_level.write_bytes(original[top_level])
+        # The directory itself as a symlink, named with a trailing separator,
+        # is reported once.
+        try:
+            os.symlink(dist_info, self.base / 'linked.dist-info', target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pass  # not available on this filesystem
+        else:
+            linked = os.path.relpath(self.base / 'linked.dist-info', self.checkout)
+            result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', linked + os.sep, '--dist-dir', str(dist))
+            output = result.stdout + result.stderr
+            self.assertNotEqual(result.returncode, 0, 'a symlinked dist-info directory must be refused')
+            self.assertEqual(output.count('linked.dist-info (symlink)'), 1, output)
         # The directory as generated is accepted, and the wheel carries exactly it.
         result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

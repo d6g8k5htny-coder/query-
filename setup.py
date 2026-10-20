@@ -40,7 +40,8 @@ of the installed package still passes. Nine commands are guarded:
   and bytecode, which nothing recompiles, is refused.
 - ``editable_wheel`` applies the same ``--dist-info-dir`` comparison; pip's
   editable install passes the metadata it generated, and the command copies it
-  into the editable wheel as is.
+  into the editable wheel as is. It also refuses a symlinked ``build/``, where
+  a strict editable build empties and fills its link tree.
 - ``install_lib`` applies the same comparison to the directory it copies from
   (its ``--build-dir``, by default ``build/lib``), whether or not it rebuilt
   it, which covers the legacy ``install``, ``install_lib`` and ``bdist_egg``
@@ -49,12 +50,14 @@ of the installed package still passes. Nine commands are guarded:
   nothing recompiled it, and the copy keeps a cache file newer than its source.
 - ``bdist_egg`` and ``bdist_dumb`` refuse a leftover in their own staging
   trees the same way; the legacy archives are assembled from whatever those
-  trees hold. ``bdist_rpm`` refuses one in its rpm tree, except the spec and
-  source archive that every run rewrites (forced) and a successful run leaves
-  behind with empty directories. Each command reads only its own tree, so a
-  sibling's tree under ``build/bdist.<platform>`` blocks nothing else. A tree
-  that an earlier command of the same run kept (``bdist`` keeps one between
-  two formats of a command) is that run's own output and is admitted.
+  trees hold. ``bdist_rpm`` refuses one in its rpm tree, except the spec,
+  source archive and icon that every full run rewrites (forced) and a
+  successful run leaves behind with empty directories. Each command reads only
+  its own tree, so a sibling's tree under ``build/bdist.<platform>`` blocks
+  nothing else. A tree that the same command kept earlier in the same run
+  (``bdist`` keeps one between two formats of a command) is that command's own
+  output and is admitted to it alone; a spec-only rpm run keeps nothing. Every
+  tree walk refuses a file that is not a regular file, such as a named pipe.
 - ``egg_info`` regenerates ``SOURCES.txt`` from the tree and never reads a
   leftover manifest back in, so a stale entry can add a file neither to a wheel
   nor to a source distribution; any other file left beside the ones this run
@@ -80,7 +83,9 @@ and the staging tree, ``src/`` above the egg-info directory) is refused before
 anything is written, because every write under it would land wherever the link
 points. A tree named with a trailing separator or ``.`` is checked as the link
 it names, and one reached through ``..`` after a symlinked directory is refused
-as well. The output directory (``dist/`` or ``--dist-dir``) is taken as given.
+as well. The output directory (``dist/`` or ``--dist-dir``) is taken as given,
+as are inputs an option names explicitly, such as ``bdist_rpm --icon``, and
+the tree ``rpmbuild`` uses under ``--no-rpm3-mode``.
 
 Nothing is deleted; each refusal names the leftovers and the remedy, which is
 ``git clean`` for the checkout's own ``build/`` and egg-info directory and
@@ -177,6 +182,8 @@ def _unexpected(tree: str, produced: set[str], empty_dirs: bool = False) -> list
             kind = _alias(path)
             if kind:
                 found.append(_relative(path) + ' (' + kind + ')')
+            elif not os.path.isfile(path):
+                found.append(_relative(path) + ' (not a regular file)')  # a pipe would block a reader or writer
             elif os.stat(path).st_nlink > 1:
                 found.append(_relative(path) + ' (hard link)')
             elif _canonical(path) not in produced:
@@ -412,7 +419,7 @@ def _dist_info_mismatches(tree: str, reference: str) -> list[str]:
 def _refuse_dist_info(mismatches: list[str]) -> None:
     if mismatches:
         raise SetupError(
-            'REFUSED: pre-generated metadata does not match this build\'s own: ' + ', '.join(mismatches)
+            'REFUSED: pre-generated metadata does not match this build\'s own: ' + ', '.join(sorted(set(mismatches)))
             + '. Regenerate it from this checkout (setup.py dist_info) or build without --dist-info-dir.')
 
 
@@ -425,28 +432,31 @@ def _guard_dist_info(dist_info_dir: str | None) -> None:
             _refuse_dist_info(_dist_info_mismatches(os.fspath(dist_info_dir), _fresh_dist_info(workdir)))
 
 
-# Files of staging trees that an earlier command of this same run kept
-# (``bdist`` keeps the tree between two formats of one command): this run's
-# own output, not leftovers.
-_KEPT_STAGING: set[str] = set()
+# Files of a staging tree that a command kept earlier in this same run, by
+# command (``bdist`` keeps the tree between two formats of one command): that
+# command's own output, not leftovers. Another command does not archive it.
+_KEPT_STAGING: dict[str, set[str]] = {}
 
 
-def _guard_staging(staging_dir: str, rewritten: frozenset[str] = frozenset(), empty_dirs: bool = True) -> None:
+def _guard_staging(command, staging_dir: str, rewritten: frozenset[str] = frozenset(),
+                   empty_dirs: bool = True) -> None:
     """Refuse any leftover in a command's own staging tree, which the command
     archives (or, for rpm, hands to rpmbuild) as found. A sibling command's
-    tree under the same ``build/bdist.<platform>`` is never read. Files that an
-    earlier command of this same run kept, and ``rewritten`` files that the
-    command overwrites on every run, are admitted."""
+    tree under the same ``build/bdist.<platform>`` is never read. Files that
+    the same command kept earlier in this run, and ``rewritten`` files that it
+    overwrites on every run, are admitted."""
+    kept = _KEPT_STAGING.get(command.get_command_name(), set())
     _refuse(sorted(_symlinked_parents(staging_dir)
-                   + _unexpected(staging_dir, _KEPT_STAGING | rewritten, empty_dirs=empty_dirs)), staging_dir)
+                   + _unexpected(staging_dir, kept | rewritten, empty_dirs=empty_dirs)), staging_dir)
 
 
 def _remember_kept(command, staging_dir: str) -> None:
-    """After a command that keeps its staging tree, admit that tree's files to
-    later commands of this run."""
+    """After a run that keeps its staging tree, admit that tree's files to the
+    same command's next run in this process."""
     if getattr(command, 'keep_temp', False) and os.path.isdir(staging_dir):
+        kept = _KEPT_STAGING.setdefault(command.get_command_name(), set())
         for dirpath, _dirnames, filenames in os.walk(staging_dir):
-            _KEPT_STAGING.update(_canonical(os.path.join(dirpath, name)) for name in filenames)
+            kept.update(_canonical(os.path.join(dirpath, name)) for name in filenames)
 
 
 class build_py(_build_py):
@@ -471,7 +481,7 @@ class bdist_wheel(_bdist_wheel):
     """Refuse a leftover staging tree, and re-check build/lib even with --skip-build."""
 
     def run(self) -> None:
-        _guard_staging(self.bdist_dir)
+        _guard_staging(self, self.bdist_dir)
         _guard_dist_info(self.dist_info_dir)
         if self.skip_build:
             _guard_skipped_build(self)
@@ -487,7 +497,10 @@ class editable_wheel(_editable_wheel):
 
     def run(self) -> None:
         # Before the run: it writes WHEEL into the given directory, then copies
-        # the directory into the wheel as is.
+        # the directory into the wheel as is. A strict editable build empties
+        # and fills its link tree under build/, which a symlinked build/ would
+        # redirect.
+        _refuse(_symlinked_parents(os.path.join(self.project_dir, 'build', '__editable__')), 'build')
         _guard_dist_info(self.dist_info_dir)
         super().run()
 
@@ -496,7 +509,7 @@ class bdist_egg(_bdist_egg):
     """Refuse a leftover egg staging tree; the legacy archive is assembled from whatever it holds."""
 
     def run(self) -> None:
-        _guard_staging(self.bdist_dir)
+        _guard_staging(self, self.bdist_dir)
         super().run()
         _remember_kept(self, self.bdist_dir)
 
@@ -505,7 +518,7 @@ class bdist_dumb(_bdist_dumb):
     """Refuse a leftover dumb staging tree; the archive is the pseudo-installation tree as found."""
 
     def run(self) -> None:
-        _guard_staging(self.bdist_dir)
+        _guard_staging(self, self.bdist_dir)
         super().run()
         _remember_kept(self, self.bdist_dir)
 
@@ -514,18 +527,22 @@ class bdist_rpm(_bdist_rpm):
     """Refuse a leftover in the rpm build tree before rpmbuild sees it."""
 
     def run(self) -> None:
-        # Every run rewrites the spec and the source archive that rpmbuild
-        # reads, and a successful run leaves both behind with empty
-        # directories; the copy is forced, so an existing archive newer than
-        # the new one is not kept. Anything else in the tree is a leftover.
+        # Every full run rewrites the spec, the source archive and any icon
+        # that rpmbuild reads, and a successful run leaves them behind with
+        # empty directories; the copies are forced, so an existing file newer
+        # than the new one is not kept. Anything else in the tree is a leftover.
         self.force = True
         archive = self.distribution.get_fullname() + ('.tar.bz2' if self.use_bzip2 else '.tar.gz')
-        rewritten = frozenset({
-            _canonical(os.path.join(self.rpm_base, 'SPECS', self.distribution.get_name() + '.spec')),
-            _canonical(os.path.join(self.rpm_base, 'SOURCES', archive))})
-        _guard_staging(self.rpm_base, rewritten, empty_dirs=False)
+        names = [os.path.join('SPECS', self.distribution.get_name() + '.spec'), os.path.join('SOURCES', archive)]
+        if self.icon:
+            names.append(os.path.join('SOURCES', os.path.basename(self.icon)))
+        rewritten = frozenset(_canonical(os.path.join(self.rpm_base, name)) for name in names)
+        _guard_staging(self, self.rpm_base, rewritten, empty_dirs=False)
         super().run()
-        _remember_kept(self, self.rpm_base)
+        if not self.spec_only:
+            # A spec-only run writes the spec into --dist-dir and rewrites
+            # nothing in the rpm tree, so it vouches for nothing found there.
+            _remember_kept(self, self.rpm_base)
 
 
 class install_lib(_install_lib):
