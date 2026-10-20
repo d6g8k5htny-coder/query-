@@ -22,14 +22,17 @@ of the installed package still passes. Five commands are guarded:
   only when this run recompiles it (``--compile`` or ``-O`` with bytecode
   writing enabled); under ``python -B`` or ``PYTHONDONTWRITEBYTECODE`` setuptools
   skips the compile step, so a cache file found under ``build/lib`` is refused.
+  A dry run writes nothing, so the comparison after the run is skipped there;
+  the leftover check before it still applies.
 - ``bdist_wheel`` refuses a leftover staging tree under ``build/bdist.*/wheel``
   (an interrupted build leaves one, and the next build archives whatever it
   holds) and repeats the ``build/lib`` comparison, so ``--skip-build`` cannot
   bypass it. With ``--skip-build`` nothing is rebuilt, so the byte comparison
   runs there instead, every expected output must be present as a regular file,
   and bytecode, which nothing recompiles, is refused.
-- ``install_lib`` applies the same skipped-build comparison, which covers the
-  legacy ``install``, ``install_lib`` and ``bdist_egg`` commands with
+- ``install_lib`` applies the same skipped-build comparison to the directory
+  it copies from (its ``--build-dir``, by default ``build/lib``), which covers
+  the legacy ``install``, ``install_lib`` and ``bdist_egg`` commands with
   ``--skip-build``.
 - ``egg_info`` regenerates ``SOURCES.txt`` from the tree and never reads a
   leftover manifest back in, so a stale entry can add a file neither to a wheel
@@ -38,10 +41,15 @@ of the installed package still passes. Five commands are guarded:
   whole directory into the archive. The directory is checked before the
   writers run as well as after: a writer opens each metadata file by name and
   would follow a symlink, overwriting whatever it points at, so the directory
-  itself and every entry in it must be regular.
-- ``sdist`` refuses a leftover release tree (``universal_law_query-0.1.0/``,
-  kept by ``--keep-temp`` or an interrupted run), which setuptools would
-  otherwise fill, archive whole and only then remove.
+  itself and every entry in it must be a regular file with a single link; a
+  hard-linked file shares its bytes with another path and would be written
+  through just the same.
+- ``sdist`` refuses a symlink among the files the manifest names, or a
+  symlinked directory above one, before copying anything: the release tree
+  would otherwise hold the link's target as a regular file. It also refuses a
+  leftover release tree (``universal_law_query-0.1.0/``, kept by
+  ``--keep-temp`` or an interrupted run), which setuptools would otherwise
+  fill, archive whole and only then remove.
 
 A symlinked directory above any of these trees (``build/`` above ``build/lib``
 and the staging tree, ``src/`` above the egg-info directory) is refused before
@@ -125,28 +133,40 @@ def _refuse(unexpected: list[str], tree: str) -> None:
             + '. Remove build leftovers before installing: ' + _remedy(tree))
 
 
-def _source_pairs(build_py_command) -> list[tuple[str, str]]:
-    """(source, output) for every module and data file the build copies."""
+def _under(tree: str, path: str, build_lib: str) -> str:
+    """``path``, produced under ``build_lib``, relocated under ``tree``."""
+    return os.path.join(tree, os.path.relpath(path, build_lib))
+
+
+def _source_pairs(build_py_command, tree: str | None = None) -> list[tuple[str, str]]:
+    """(source, output) for every module and data file the build copies, with
+    the outputs under ``tree`` (by default the build's own ``build_lib``)."""
+    build_lib = build_py_command.build_lib
+    tree = build_lib if tree is None else tree
     pairs = []
     for package, module, module_file in build_py_command.find_all_modules():
-        output = build_py_command.get_module_outfile(build_py_command.build_lib, package.split('.'), module)
-        pairs.append((module_file, output))
+        pairs.append((module_file, build_py_command.get_module_outfile(tree, package.split('.'), module)))
     for _package, src_dir, build_dir, filenames in build_py_command.data_files:
         for filename in filenames:
-            pairs.append((os.path.join(src_dir, filename), os.path.join(build_dir, filename)))
+            pairs.append((os.path.join(src_dir, filename), _under(tree, os.path.join(build_dir, filename), build_lib)))
     return pairs
 
 
-def _symlinked_sources(build_py_command) -> list[str]:
-    """Package sources, and directories above them, that are symlinks."""
+def _symlinked_paths(paths) -> list[str]:
+    """Each of ``paths`` that is a symlink, and every symlinked directory above one."""
     found = set()
-    for source, _output in _source_pairs(build_py_command):
+    for source in paths:
         path = os.path.normpath(source)
         while path and path != os.path.dirname(path):
             if os.path.islink(path):
                 found.add(_relative(path) + ' (symlink)')
             path = os.path.dirname(path)
     return sorted(found)
+
+
+def _symlinked_sources(build_py_command) -> list[str]:
+    """Package sources, and directories above them, that are symlinks."""
+    return _symlinked_paths(source for source, _output in _source_pairs(build_py_command))
 
 
 def _symlinked_parents(path: str) -> list[str]:
@@ -179,6 +199,8 @@ def _egg_info_leftovers(tree: str, written: set[str]) -> list[str]:
             found.append(_relative(path) + ' (symlink)')
         elif not os.path.isfile(path):
             found.append(_relative(path) + ' (not a regular file)')
+        elif os.stat(path).st_nlink > 1:
+            found.append(_relative(path) + ' (hard link)')
         elif name not in written:
             found.append(_relative(path))
     return sorted(found)
@@ -187,16 +209,16 @@ def _egg_info_leftovers(tree: str, written: set[str]) -> list[str]:
 def _refuse_sources(symlinked: list[str]) -> None:
     if symlinked:
         raise SetupError(
-            'REFUSED: symlinked package source, which would ship the link\'s target rather than a file of '
+            'REFUSED: symlinked source, which would ship the link\'s target rather than a file of '
             'this source tree: ' + ', '.join(symlinked)
             + '. Replace the symlink with a regular file before installing.')
 
 
-def _differing_outputs(build_py_command) -> list[str]:
+def _differing_outputs(build_py_command, tree: str | None = None) -> list[str]:
     """Produced module and data paths that are missing, not regular files, or
     whose bytes are not this source tree's."""
     found = []
-    for source, output in _source_pairs(build_py_command):
+    for source, output in _source_pairs(build_py_command, tree):
         if os.path.islink(output):
             continue  # already reported by the tree walk
         if not os.path.exists(output):
@@ -208,29 +230,34 @@ def _differing_outputs(build_py_command) -> list[str]:
     return found
 
 
-def _guard_build_lib(build_py_command, compare_bytes: bool = False, recompiles: bool = True) -> None:
-    """Refuse a symlinked source, then anything under build/lib that is not
-    this source tree's output.
+def _guard_build_lib(build_py_command, compare_bytes: bool = False, recompiles: bool = True,
+                     tree: str | None = None) -> None:
+    """Refuse a symlinked source, then anything under the output tree (by
+    default build/lib) that is not this source tree's output.
 
     Bytecode is admitted only when this run rewrites it: ``recompiles`` is
     false when nothing is rebuilt (``--skip-build``), and setuptools skips the
     compile step under ``python -B`` or ``PYTHONDONTWRITEBYTECODE``. With
     ``compare_bytes`` each produced module's and data file's bytes are also
     checked against its source, and every expected output must be present.
+    ``tree`` names another directory holding the same layout, such as the one
+    ``install_lib --build-dir`` copies from.
     """
+    build_lib = build_py_command.build_lib
+    tree = build_lib if tree is None else tree
     _refuse_sources(_symlinked_sources(build_py_command))
     admit_bytecode = recompiles and not sys.dont_write_bytecode
-    produced = {_canonical(path) for path in build_py_command.get_outputs(include_bytecode=admit_bytecode)}
-    unexpected = sorted(_symlinked_parents(build_py_command.build_lib)
-                        + _unexpected(build_py_command.build_lib, produced))
+    produced = {_canonical(_under(tree, path, build_lib))
+                for path in build_py_command.get_outputs(include_bytecode=admit_bytecode)}
+    unexpected = sorted(_symlinked_parents(tree) + _unexpected(tree, produced))
     if compare_bytes:
-        unexpected = sorted(unexpected + _differing_outputs(build_py_command))
-    _refuse(unexpected, build_py_command.build_lib)
+        unexpected = sorted(unexpected + _differing_outputs(build_py_command, tree))
+    _refuse(unexpected, tree)
 
 
-def _guard_skipped_build(command) -> None:
-    """A command that ships build/lib without rebuilding it compares the bytes it has."""
-    _guard_build_lib(command.get_finalized_command('build_py'), compare_bytes=True, recompiles=False)
+def _guard_skipped_build(command, tree: str | None = None) -> None:
+    """A command that ships a build tree without rebuilding it compares the bytes it has."""
+    _guard_build_lib(command.get_finalized_command('build_py'), compare_bytes=True, recompiles=False, tree=tree)
 
 
 class build_py(_build_py):
@@ -242,7 +269,9 @@ class build_py(_build_py):
         # its source would otherwise be kept as "up to date" and shipped.
         self.force = True
         super().run()
-        _guard_build_lib(self, compare_bytes=True)
+        # A dry run writes nothing, so there is nothing to compare; the
+        # leftover check still runs.
+        _guard_build_lib(self, compare_bytes=not self.dry_run)
 
 
 class bdist_wheel(_bdist_wheel):
@@ -264,7 +293,8 @@ class install_lib(_install_lib):
 
     def run(self) -> None:
         if self.skip_build:
-            _guard_skipped_build(self)
+            # The directory this command copies from, not necessarily build/lib.
+            _guard_skipped_build(self, self.build_dir)
         super().run()
 
 
@@ -304,6 +334,9 @@ class sdist(_sdist):
     """Refuse a leftover release tree; setuptools would fill it, archive it whole and only then remove it."""
 
     def make_release_tree(self, base_dir, files) -> None:
+        # Every manifest entry is copied or hard-linked into the tree and then
+        # archived, so a symlink among them, or above one, would ship its target.
+        _refuse_sources(_symlinked_paths(files))
         _refuse(_unexpected(base_dir, set()), base_dir)
         super().make_release_tree(base_dir, files)
 

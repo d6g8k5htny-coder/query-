@@ -525,7 +525,7 @@ class InstallProvenance(unittest.TestCase):
         result = self.wheel()
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'a symlinked source must be refused')
-        self.assertIn('REFUSED: symlinked package source', output)
+        self.assertIn('REFUSED: symlinked source', output)
         self.assertIn('src/' + PACKAGE + '/leak.py (symlink)', output)
         self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
         self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE / 'leak.py').exists(),
@@ -557,9 +557,92 @@ class InstallProvenance(unittest.TestCase):
         result = direct_setup(self.checkout, 'build_py')
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'a symlinked package directory must be refused')
-        self.assertIn('REFUSED: symlinked package source', output)
+        self.assertIn('REFUSED: symlinked source', output)
         self.assertIn('src/' + PACKAGE + '/sub (symlink)', output)
         self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE / 'sub').exists())
+
+    def test_symlinked_sdist_inputs_are_refused(self):
+        # The manifest names more than the package sources (tests, docs, the
+        # wrappers); each entry is copied or hard-linked into the release tree
+        # and archived, so a symlink among them would ship its target.
+        private = self.base / 'private_test.py'
+        private.write_text('PRIVATE = True\n', encoding='utf-8')
+        leak = self.checkout / 'tests' / 'test_leak.py'
+        try:
+            os.symlink(private, leak)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'sdist', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked sdist input must be refused')
+        self.assertIn('REFUSED: symlinked source', output)
+        self.assertIn('tests/test_leak.py (symlink)', output)
+        self.assertEqual(sorted(dist.glob('*.tar.gz')) if dist.exists() else [], [])
+        self.assertFalse((self.checkout / release_tree_name(self.checkout)).exists(),
+                         'nothing may be copied before the refusal')
+        self.assertTrue(leak.is_symlink(), 'the link is reported, not replaced')
+
+    def test_hard_linked_egg_info_entries_are_refused_before_anything_is_written(self):
+        # A hard link is a regular file by every test but shares its bytes with
+        # another path, so a writer opening it by name overwrites that path too.
+        outside = self.base / 'outside'
+        outside.mkdir()
+        secret = outside / 'secret.txt'
+        secret.write_text('SECRET\n', encoding='utf-8')
+        egg_info = self.checkout / 'src' / 'universal_law_query.egg-info'
+        egg_info.mkdir()
+        try:
+            os.link(secret, egg_info / 'SOURCES.txt')
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'hard links are not available here: {error}')
+        result = direct_setup(self.checkout, 'egg_info')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a hard-linked metadata file must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('src/universal_law_query.egg-info/SOURCES.txt (hard link)', output)
+        self.assertEqual(secret.read_text(encoding='utf-8'), 'SECRET\n', 'nothing may be written through the link')
+        self.assertFalse((egg_info / 'PKG-INFO').exists(), 'no writer may run before the refusal')
+        result = direct_setup(self.checkout, 'sdist', '--dist-dir', str(self.base / 'dist'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(secret.read_text(encoding='utf-8'), 'SECRET\n')
+
+    def test_dry_run_build_is_not_refused_for_writing_nothing(self):
+        # ``--dry-run`` writes nothing by design, so the post-run comparison
+        # has nothing to compare and is skipped; the leftover check still runs.
+        result = direct_setup(self.checkout, '--dry-run', 'build_py')
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertNotIn('REFUSED', output)
+        self.assertFalse((self.checkout / 'build').exists(), 'a dry run must write nothing')
+        plant_leftovers(self.checkout)
+        result = direct_setup(self.checkout, '--dry-run', 'build_py')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'leftovers are refused on a dry run as well')
+        self.assertIn('REFUSED: stale build output', output)
+
+    def test_install_lib_skip_build_validates_the_directory_it_copies_from(self):
+        # ``install_lib --build-dir`` copies from the named directory, so that
+        # directory, not the default build/lib, is what must hold exactly this
+        # tree's outputs.
+        built = direct_setup(self.checkout, 'build_py')
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        elsewhere = self.checkout / 'elsewhere'
+        (elsewhere / PACKAGE).mkdir(parents=True)
+        (elsewhere / PACKAGE / 'stale.py').write_text('STALE = True\n', encoding='utf-8')
+        result = direct_setup(self.checkout, 'install_lib', '--skip-build', '--build-dir', 'elsewhere',
+                              '--install-dir', str(self.target))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the copied-from directory must be validated')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('elsewhere/' + PACKAGE + '/stale.py', output)
+        self.assertIn('elsewhere/' + PACKAGE + '/__init__.py (missing)', output)
+        self.assertIn('under elsewhere', output)
+        self.assertEqual(installed_files(self.target), [], 'nothing may be installed after a refusal')
+        result = direct_setup(self.checkout, 'install_lib', '--skip-build', '--build-dir', 'build/lib',
+                              '--install-dir', str(self.target))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(installed_files(self.target), tracked_source_files())
 
     def test_symlinked_egg_info_entries_are_refused_before_anything_is_written(self):
         # egg_info's writers open each metadata file by name and follow a
