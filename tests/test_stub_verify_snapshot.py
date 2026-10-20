@@ -150,6 +150,111 @@ class DownstreamSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, 'REFUSED:.*math_tip'):
             verifier.load_candidates(self.root)
 
+    def test_identical_candidate_duplicates_keep_first_row(self):
+        original = row('shared')
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [original, dict(original)]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        self.assertEqual(verifier.load_candidates(self.root), [original])
+
+    def test_note_only_duplicate_is_not_identity_conflict(self):
+        original = row('shared')
+        original['note'] = 'Historical standalone commentary; candidate only.'
+        second = dict(original)
+        second['note'] = 'Bundle commentary; candidate only.'
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [original, second]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        # The first annotation is kept; neither annotation is an acceptance.
+        self.assertEqual(verifier.load_candidates(self.root), [original])
+
+    def test_conflicting_candidate_duplicates_in_one_bundle_are_refused(self):
+        original = row('duplicate')
+        original['scope'] = 'same declared scope'
+        # Each record is individually well-formed; the conflict must not be
+        # ignored simply because a valid first occurrence has already been seen.
+        changes = (
+            ('commit', OLDER), ('sha256', '0' * 64),
+            ('bytes', len(PAYLOAD) + 1),
+            ('path', 'frontiers/example/another.md'),
+            ('visibility', 'private'),
+            ('scope', 'conflicting scope'),
+            ('unlisted_future_field', 'unexpected distinct value'))
+        for field, value in changes:
+            with self.subTest(field=field):
+                conflicting = dict(original)
+                conflicting[field] = value
+                self.write_bundle(
+                    {'scientific_status_authority': False,
+                     'artifacts': [original, conflicting]},
+                    'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+                with self.assertRaisesRegex(
+                        SystemExit, 'REFUSED: conflicting candidate key: duplicate'):
+                    verifier.load_candidates(self.root)
+
+    def test_conflicting_single_and_bundle_duplicate_refused_before_fetch(self):
+        original = row('shared')
+        (self.portable / 'RN_FIXED_REMOTE_REPLAY_STUB.json').write_text(
+            json.dumps(original), encoding='utf-8')
+        conflicting = dict(original)
+        conflicting['sha256'] = '0' * 64
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [conflicting]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        fetch = mock.Mock()
+        with mock.patch.dict(os.environ, {'QUERY_STUB_VERIFY': '1'}), \
+                self.assertRaisesRegex(
+                    SystemExit, 'REFUSED: conflicting candidate key: shared'):
+            verifier.main(
+                [], load_candidates_fn=lambda: verifier.load_candidates(self.root),
+                fetch_fn=fetch)
+        fetch.assert_not_called()
+
+    def test_duplicate_json_type_collisions_refused_before_fetch(self):
+        # JSON distinguishes true, 1 and 1.0; Python dict equality does not.
+        # Unknown nested future fields are identity-bearing, except 'note'.
+        changes = (
+            ('integer_vs_boolean', 1, True),
+            ('integer_vs_float', 1, 1.0),
+            ('nested_integer_vs_boolean',
+             {'items': [{'ordinal': 1}]},
+             {'items': [{'ordinal': True}]}),
+        )
+        for name, left, right in changes:
+            with self.subTest(name=name):
+                original = row('typed')
+                original['unlisted_future_field'] = left
+                conflicting = dict(original)
+                conflicting['unlisted_future_field'] = right
+                self.write_bundle(
+                    {'scientific_status_authority': False,
+                     'artifacts': [original, conflicting]},
+                    'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+                fetch = mock.Mock()
+                with mock.patch.dict(os.environ, {'QUERY_STUB_VERIFY': '1'}), \
+                        self.assertRaisesRegex(
+                            SystemExit, 'REFUSED: conflicting candidate key: typed'):
+                    verifier.main(
+                        [], load_candidates_fn=lambda: verifier.load_candidates(self.root),
+                        fetch_fn=fetch)
+                fetch.assert_not_called()
+
+    def test_duplicate_bool_byte_count_does_not_equal_integer(self):
+        original = row('typed-size')
+        original['bytes'] = 1
+        conflicting = dict(original)
+        conflicting['bytes'] = True
+        self.write_bundle(
+            {'scientific_status_authority': False,
+             'artifacts': [original, conflicting]},
+            'CANDIDATE_PUBLIC_REPLAY_STUBS.json')
+        with self.assertRaisesRegex(
+                SystemExit, 'REFUSED: conflicting candidate key: typed-size'):
+            verifier.load_candidates(self.root)
+
     def test_current_checkout_retains_ten_unique_candidate_keys(self):
         keys = [item['key'] for item in verifier.load_candidates(ROOT)]
         self.assertEqual(len(keys), 10)

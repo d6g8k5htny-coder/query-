@@ -24,11 +24,32 @@ def load_candidates(root: Path|None=None)->list[dict]:
         if data.get('scientific_status_authority') is not False: raise SystemExit('REFUSED: candidate bundle must deny scientific authority: '+bundle_path.name)
         if bundle_path.name=='CANDIDATE_DOWNSTREAM_GATE_STUBS.json': _validate_downstream_snapshot(data)
         rows.extend(data['artifacts'])
-    seen=set();out=[]
+    # The standalone RN stub is also present in a public bundle with a
+    # different commentary note. Notes are not consumed by the verifier.
+    # Every other field, including unknown future fields, must agree.
+    def verifying_fields(item):
+        return {name:value for name,value in item.items() if name!='note'}
+    def same_json_value(left, right):
+        # JSON booleans and numbers are distinct even though Python says
+        # True == 1 == 1.0. Compare types recursively, including future keys.
+        if type(left) is not type(right): return False
+        if isinstance(left, dict):
+            return left.keys()==right.keys() and all(
+                same_json_value(left[key],right[key]) for key in left)
+        if isinstance(left, list):
+            return len(left)==len(right) and all(
+                same_json_value(a,b) for a,b in zip(left,right))
+        return left==right
+    seen={};out=[]
     for row in rows:
         key=row['key']
-        if key in seen: continue
-        seen.add(key);out.append(row)
+        if key in seen:
+            # Refuse conflicting identities, access or scopes before any fetch;
+            # preserve the first source annotation for note-only repeats.
+            if not same_json_value(verifying_fields(row),verifying_fields(seen[key])):
+                raise SystemExit('REFUSED: conflicting candidate key: '+str(key))
+            continue
+        seen[key]=row;out.append(row)
     return out
 
 def validate_row(row:dict)->None:
