@@ -46,12 +46,25 @@ Installing from the checkout, and the installation control in
 `tests/test_install_contract.py`, leave setuptools' `build/` and
 `src/universal_law_query.egg-info/` in the checkout. Both are listed in
 `.gitignore`, so `git status` stays clean, and the source dry-run builder (which
-selects tracked files only) is unaffected. They are not harmless: a file left
-in `build/lib/` (for example by an install from another commit) is installed by
-the next install even though `src/` does not contain it, and the installation
-control still passes. Remove them before installing:
-`git clean -fdX -- build src/universal_law_query.egg-info`. A fresh checkout,
-as in CI, has neither directory.
+selects tracked files only) is unaffected. They are not harmless: setuptools
+reuses `build/lib/` without removing anything, so a file left there (for
+example by an install from another commit) would otherwise be installed by the
+next install even though `src/` does not contain it, and a stale `SOURCES.txt`
+in the egg-info directory would otherwise add package data; the installation
+control above cannot see either. The checkout's `setup.py` therefore refuses to
+build when `build/lib/` holds anything this source tree did not produce
+(`REFUSED: stale build output …`, naming the files), and `pyproject.toml`
+declares that the package ships no package data. Nothing is deleted for you;
+remove the leftovers before installing:
+`git clean -fdX -- build src/universal_law_query.egg-info`.
+`tests/test_install_provenance.py` installs temporary copies of the checkout,
+clean and deliberately contaminated, and checks that the installed files are
+exactly the tracked package files. A fresh checkout, as in CI, has neither
+directory. An untracked file placed directly in `src/universal_law_query/` is
+source, not a leftover, and is installed like any other module. Editable
+installs (`pip install -e`) run from `src/` and are unaffected. The custom
+source archive below does not carry `setup.py`; it has no leftovers of its own,
+and installation from it is not one of its offline checks.
 
 The canonical implementation lives in `src/universal_law_query/`. Historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
 
