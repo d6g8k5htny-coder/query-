@@ -9,8 +9,11 @@ wheel although ``src/`` does not contain it, and an import check of the
 installed package still passes. This ``build_py`` compares the whole
 ``build_lib`` tree with the files it has just produced and refuses to continue
 when anything else is present. Bytecode written by the same run (``--compile``
-or ``-O``) counts as produced. Nothing is deleted; the refusal names the
-leftovers and the documented remedy.
+or ``-O``) counts as produced; that admission is by cache path, so a file
+already at a path this run would write is accepted even when the byte-compile
+step leaves its bytes in place (the pip path writes no bytecode and refuses
+such a file). Nothing is deleted; the refusal names the leftovers and the
+documented remedy.
 """
 from __future__ import annotations
 
