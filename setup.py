@@ -34,14 +34,16 @@ of the installed package still passes. Nine commands are guarded:
   pre-generated ``--dist-info-dir`` that differs in any name or byte from this
   build's own metadata, which a separate ``dist_info`` run of this script
   regenerates for the comparison (the directory is copied into the wheel as
-  is), and repeats the ``build/lib`` comparison, so ``--skip-build`` cannot
+  is; only a regular ``WHEEL``, which the command rewrites, is admitted
+  besides), and repeats the ``build/lib`` comparison, so ``--skip-build`` cannot
   bypass it. With ``--skip-build`` nothing is rebuilt, so the byte comparison
   runs there instead, every expected output must be present as a regular file,
   and bytecode, which nothing recompiles, is refused.
-- ``editable_wheel`` applies the same ``--dist-info-dir`` comparison; pip's
-  editable install passes the metadata it generated, and the command copies it
-  into the editable wheel as is. It also refuses a symlinked ``build/``, where
-  a strict editable build empties and fills its link tree.
+- ``editable_wheel`` applies the same ``--dist-info-dir`` comparison; a
+  frontend may pass the metadata it generated (pip 26 with setuptools 77 to 84
+  does not), and the command writes ``WHEEL`` into it and copies it into the
+  editable wheel as is. It also refuses a symlinked ``build/``, where a strict
+  editable build empties and fills its link tree.
 - ``install_lib`` applies the same comparison to the directory it copies from
   (its ``--build-dir``, by default ``build/lib``), whether or not it rebuilt
   it, which covers the legacy ``install``, ``install_lib`` and ``bdist_egg``
@@ -382,7 +384,9 @@ def _dist_info_mismatches(tree: str, reference: str) -> list[str]:
     """Every way a pre-generated dist-info directory differs from ``reference``,
     this build's own: an alias or hard link, a non-regular file, an entry the
     reference lacks, bytes that differ, or a reference file that is missing.
-    Names are compared exactly, so a case variant counts as another entry."""
+    Names are compared exactly, so a case variant counts as another entry. A
+    regular top-level ``WHEEL`` is admitted: bdist_wheel and editable_wheel
+    both rewrite it."""
     found = _symlinked_parents(tree)
     kind = _alias(tree)
     if kind:
@@ -407,6 +411,8 @@ def _dist_info_mismatches(tree: str, reference: str) -> list[str]:
             found.append(_relative(path) + ' (not a regular file)')
         elif os.stat(path).st_nlink > 1:
             found.append(_relative(path) + ' (hard link)')
+        elif entry == 'WHEEL':
+            pass  # bdist_wheel and editable_wheel rewrite it (editable_wheel in place)
         elif entry not in expected_files:
             found.append(_relative(path) + ' (not in this build\'s metadata)')
         elif not filecmp.cmp(os.path.join(reference, entry), path, shallow=False):
@@ -493,7 +499,7 @@ class bdist_wheel(_bdist_wheel):
 
 
 class editable_wheel(_editable_wheel):
-    """Validate a pre-generated dist-info; pip's editable flow passes the one it generated."""
+    """Validate a pre-generated dist-info, which a frontend may pass, and a symlinked build/."""
 
     def run(self) -> None:
         # Before the run: it writes WHEEL into the given directory, then copies
@@ -532,8 +538,10 @@ class bdist_rpm(_bdist_rpm):
         # empty directories; the copies are forced, so an existing file newer
         # than the new one is not kept. Anything else in the tree is a leftover.
         self.force = True
-        archive = self.distribution.get_fullname() + ('.tar.bz2' if self.use_bzip2 else '.tar.gz')
-        names = [os.path.join('SPECS', self.distribution.get_name() + '.spec'), os.path.join('SOURCES', archive)]
+        # Both archive formats: a run with the other --use-bzip2 setting leaves
+        # one that the spec, naming only the current one, never reads.
+        names = [os.path.join('SPECS', self.distribution.get_name() + '.spec')]
+        names += [os.path.join('SOURCES', self.distribution.get_fullname() + suffix) for suffix in ('.tar.gz', '.tar.bz2')]
         if self.icon:
             names.append(os.path.join('SOURCES', os.path.basename(self.icon)))
         rewritten = frozenset(_canonical(os.path.join(self.rpm_base, name)) for name in names)
@@ -577,8 +585,11 @@ class egg_info(_egg_info):
         self.filelist = mm.filelist
         # The metadata conversion reads README.md into METADATA and copies the
         # license files into the wheel, following any symlink, so every file
-        # the manifest names must be a file of this tree, as for an sdist.
-        _refuse_sources(_symlinked_paths(self.filelist.files))
+        # the manifest names must be a file of this tree, as for an sdist. An
+        # absolute entry is this run's own egg-info under a configured
+        # --egg-base (pip's temporary directory), checked by run() and taken
+        # as given above it.
+        _refuse_sources(_symlinked_paths(name for name in self.filelist.files if not os.path.isabs(name)))
 
     def run(self) -> None:
         written = {entry.name for entry in _metadata.entry_points(group='egg_info.writers')}

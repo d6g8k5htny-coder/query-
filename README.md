@@ -72,7 +72,8 @@ never read, and a named pipe or other special file in any tree is refused. The
 wheel and editable-wheel commands also refuse a
 pre-generated `--dist-info-dir` that differs in any name or byte from this
 build's own metadata, which a separate `setup.py dist_info` run regenerates
-for the comparison (`REFUSED: pre-generated metadata …`), and the wheel
+for the comparison (`REFUSED: pre-generated metadata …`; a regular `WHEEL`,
+which both commands rewrite, is admitted), and the wheel
 command repeats the `build/lib/` check, so `--skip-build` cannot bypass it;
 with `--skip-build` every expected output must be present with the bytes of
 its source. The legacy `install`, `install_lib` and `bdist_egg` commands run

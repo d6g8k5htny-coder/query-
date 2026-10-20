@@ -363,6 +363,8 @@ class InstallProvenance(unittest.TestCase):
             (rpm / name).mkdir(parents=True)
         (rpm / 'SPECS' / 'universal-law-query.spec').write_text('%define name universal-law-query\n', encoding='utf-8')
         (rpm / 'SOURCES' / 'universal_law_query-0.1.0.tar.gz').write_bytes(b'an earlier source archive')
+        # A run with the other --use-bzip2 setting left its archive too.
+        (rpm / 'SOURCES' / 'universal_law_query-0.1.0.tar.bz2').write_bytes(b'an earlier bzip2 archive')
         result = self.wheel()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         spec_dir = self.base / 'spec'
@@ -539,11 +541,15 @@ class InstallProvenance(unittest.TestCase):
         refused('a case variant of a file', variant, " (not in this build's metadata)")
         variant.unlink()
         top_level.write_bytes(original[top_level])
-        # bdist_wheel writes WHEEL and RECORD itself; the conversion produces neither.
+        # bdist_wheel and editable_wheel write WHEEL themselves (editable_wheel
+        # into the given directory), so a regular WHEEL is rewritten, not
+        # shipped; RECORD, which neither writes there, is not admitted.
+        record = dist_info / 'RECORD'
+        record.write_text('private,,\n', encoding='utf-8')
+        refused('a RECORD file', record, " (not in this build's metadata)")
+        record.unlink()
         wheel_file = dist_info / 'WHEEL'
-        wheel_file.write_text('Wheel-Version: 1.0\n', encoding='utf-8')
-        refused('a WHEEL file', wheel_file, " (not in this build's metadata)")
-        wheel_file.unlink()
+        wheel_file.write_text('Wheel-Version: 1.0\nGenerator: not this build\n', encoding='utf-8')
         # Under licenses/ only the declared license files belong, and no other
         # directory belongs anywhere.
         stray_license = dist_info / 'licenses' / 'private.txt'
@@ -589,9 +595,11 @@ class InstallProvenance(unittest.TestCase):
             shipped = sorted(name.split('/', 1)[1] for name in archive.namelist()
                              if name.startswith(dist_info.name + '/'))
             shipped_metadata = archive.read(dist_info.name + '/METADATA')
+            shipped_wheel = archive.read(dist_info.name + '/WHEEL')
         self.assertNotIn('private.txt', shipped)
         self.assertIn('METADATA', shipped)
         self.assertEqual(shipped_metadata, original[metadata])
+        self.assertNotIn(b'not this build', shipped_wheel, 'the planted WHEEL must be rewritten')
 
     def test_hard_linked_build_outputs_are_refused(self):
         # A hard link at a produced path shares its bytes with another file.
@@ -1186,6 +1194,11 @@ class InstallProvenance(unittest.TestCase):
                               '--dist-dir', str(editable_dist))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(len(sorted(editable_dist.glob('*.whl'))), 1)
+        # editable_wheel wrote WHEEL into the directory; using it again is accepted.
+        self.assertTrue((dist_info / 'WHEEL').is_file())
+        result = direct_setup(self.checkout, 'editable_wheel', '--dist-info-dir', str(dist_info),
+                              '--dist-dir', str(editable_dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_bdist_with_several_dumb_formats_accepts_its_own_kept_staging_tree(self):
         # ``bdist`` keeps the staging tree between two formats of the same
@@ -1202,6 +1215,27 @@ class InstallProvenance(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'a tree kept by an earlier invocation is a leftover')
         self.assertIn('REFUSED: stale build output', output)
+
+    def test_a_symlinked_temporary_directory_is_not_refused(self):
+        # pip builds the metadata under TMPDIR, an absolute path that is taken
+        # as given; macOS's default temporary directory sits behind a symlink.
+        real = self.base / 'real_tmp'
+        real.mkdir()
+        try:
+            os.symlink(real, self.base / 'linked_tmp', target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        env = dict(os.environ)
+        env.update(TMPDIR=str(self.base / 'linked_tmp'), PIP_DISABLE_PIP_VERSION_CHECK='1', PYTHONDONTWRITEBYTECODE='1')
+        result = subprocess.run([sys.executable, '-m', 'pip', 'wheel', '--quiet', '--no-deps', '--no-build-isolation',
+                                 '--wheel-dir', str(self.wheels), str(self.checkout)],
+                                env=env, capture_output=True, text=True, timeout=PIP_TIMEOUT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(sorted(self.wheels.glob('*.whl'))), 1)
+        meta = self.base / 'linked_tmp' / 'meta'
+        meta.mkdir()
+        result = direct_setup(self.checkout, 'dist_info', '--output-dir', str(meta))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     @unittest.skipUnless(os.environ.get('QUERY_INSTALL_ISOLATED') == '1',
                          'isolated build downloads setuptools; set QUERY_INSTALL_ISOLATED=1 to run')
