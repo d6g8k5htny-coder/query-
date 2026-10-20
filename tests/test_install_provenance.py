@@ -108,6 +108,11 @@ def wheel_staging_dir(checkout: Path) -> Path:
     return checkout / raw.strip()
 
 
+def egg_staging_dir(checkout: Path) -> Path:
+    # bdist_egg stages under the same bdist base as bdist_wheel (``build/bdist.<platform>/egg``).
+    return wheel_staging_dir(checkout).parent / 'egg'
+
+
 def plant_stale_manifest(checkout: Path) -> Path:
     # A SOURCES.txt left by an earlier build, naming an untracked file that exists.
     egg_info = checkout / 'src' / 'universal_law_query.egg-info'
@@ -267,6 +272,51 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn('REFUSED: stale build output', output)
         self.assertIn(empty.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
         self.assertIn(staged.parent.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+
+    def test_stale_bdist_egg_staging_tree_is_refused(self):
+        # The legacy egg is assembled from build/bdist.<platform>/egg, which a
+        # --keep-temp or interrupted run leaves behind with whatever it held.
+        staged = egg_staging_dir(self.checkout) / PACKAGE / 'stage_stale.py'
+        staged.parent.mkdir(parents=True)
+        staged.write_text('STAGE_STALE = True\n', encoding='utf-8')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_egg', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the egg build must fail closed on a staging leftover')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(staged.relative_to(self.checkout).as_posix(), output)
+        self.assertIn('git clean -fdX -- build src/universal_law_query.egg-info', output)
+        self.assertEqual(sorted(dist.glob('*.egg')) if dist.exists() else [], [])
+        self.assertTrue(staged.is_file(), 'the leftover is reported, not deleted')
+        # A clean egg build holds exactly the tracked package files.
+        shutil.rmtree(egg_staging_dir(self.checkout).parent)
+        result = direct_setup(self.checkout, 'bdist_egg', '--dist-dir', str(dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        eggs = sorted(dist.glob('*.egg'))
+        self.assertEqual(len(eggs), 1, eggs)
+        self.assertEqual(wheel_package_files(eggs[0]), tracked_source_files())
+
+    def test_hard_linked_build_outputs_are_refused(self):
+        # A hard link at a produced path shares its bytes with another file.
+        # setuptools' copy unlinks the destination before writing, so the other
+        # file is not written through, but the tree is still not this build's
+        # output; like a symlink it is refused before anything is copied.
+        outside = self.base / 'outside.py'
+        outside.write_text('OUTSIDE = True\n', encoding='utf-8')
+        linked = self.checkout / 'build' / 'lib' / PACKAGE / 'catalog.py'
+        linked.parent.mkdir(parents=True)
+        try:
+            os.link(outside, linked)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'hard links are not available here: {error}')
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a hard-linked build output must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('build/lib/' + PACKAGE + '/catalog.py (hard link)', output)
+        self.assertEqual(outside.read_text(encoding='utf-8'), 'OUTSIDE = True\n')
+        self.assertEqual(os.stat(outside).st_nlink, 2, 'the link is reported, not removed')
         self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
 
     def test_direct_bdist_wheel_skip_build_still_refuses_stale_build_lib(self):

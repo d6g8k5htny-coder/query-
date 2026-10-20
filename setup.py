@@ -6,7 +6,7 @@ lookup, verification or refusal behaviour of the package.
 setuptools reuses ``build/`` between builds and removes nothing from it. A
 module left under ``build/lib`` by an install from another commit is copied
 into the next wheel although ``src/`` does not contain it, and an import check
-of the installed package still passes. Five commands are guarded:
+of the installed package still passes. Six commands are guarded:
 
 - ``build_py`` refuses a symlink among the package sources it would copy, or a
   symlinked directory above one, because the copy and the byte comparison
@@ -15,7 +15,8 @@ of the installed package still passes. Five commands are guarded:
   before copying anything and again afterwards, and refuses when anything else
   is present. Every symlink under the tree is refused wherever it points,
   because the walk does not follow symlinks but the wheel staging step
-  dereferences them. The run rewrites every file it produces (setuptools would
+  dereferences them; a hard-linked file is refused as well, since its bytes
+  are shared with another path. The run rewrites every file it produces (setuptools would
   otherwise skip a destination that is newer than its source), and afterwards
   each produced module's bytes are compared with its source, so bytes left at a
   path this run writes are replaced, never shipped. Bytecode counts as produced
@@ -34,6 +35,9 @@ of the installed package still passes. Five commands are guarded:
   it copies from (its ``--build-dir``, by default ``build/lib``), which covers
   the legacy ``install``, ``install_lib`` and ``bdist_egg`` commands with
   ``--skip-build``.
+- ``bdist_egg`` refuses a leftover staging tree under ``build/bdist.*/egg``
+  the same way ``bdist_wheel`` does; the legacy archive is assembled from
+  whatever that tree holds.
 - ``egg_info`` regenerates ``SOURCES.txt`` from the tree and never reads a
   leftover manifest back in, so a stale entry can add a file neither to a wheel
   nor to a source distribution; any other file left beside the ones this run
@@ -68,6 +72,7 @@ import sys
 from importlib import metadata as _metadata
 
 from setuptools import setup
+from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.egg_info import egg_info as _egg_info
@@ -110,6 +115,8 @@ def _unexpected(tree: str, produced: set[str], empty_dirs: bool = False) -> list
             path = os.path.join(dirpath, name)
             if os.path.islink(path):
                 found.append(_relative(path) + ' (symlink)')
+            elif os.stat(path).st_nlink > 1:
+                found.append(_relative(path) + ' (hard link)')
             elif _canonical(path) not in produced:
                 found.append(_relative(path))
     return sorted(found)
@@ -288,6 +295,15 @@ class bdist_wheel(_bdist_wheel):
         super().run()
 
 
+class bdist_egg(_bdist_egg):
+    """Refuse a leftover egg staging tree; the legacy archive is assembled from whatever it holds."""
+
+    def run(self) -> None:
+        _refuse(sorted(_symlinked_parents(self.bdist_dir) + _unexpected(self.bdist_dir, set(), empty_dirs=True)),
+                self.bdist_dir)
+        super().run()
+
+
 class install_lib(_install_lib):
     """The legacy install, install_lib and bdist_egg paths with --skip-build copy build/lib as is."""
 
@@ -341,5 +357,5 @@ class sdist(_sdist):
         super().make_release_tree(base_dir, files)
 
 
-setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'install_lib': install_lib,
-                'egg_info': egg_info, 'sdist': sdist})
+setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'bdist_egg': bdist_egg,
+                'install_lib': install_lib, 'egg_info': egg_info, 'sdist': sdist})
