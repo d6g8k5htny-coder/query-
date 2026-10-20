@@ -71,6 +71,14 @@ def pip(*args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=PIP_TIMEOUT)
 
 
+def direct_build_py(checkout: Path, *args: str) -> subprocess.CompletedProcess:
+    # The legacy direct command path. Bytecode writing stays enabled so that the
+    # build's own ``__pycache__`` output is part of what the guard inspects.
+    env = {key: value for key, value in os.environ.items() if key != 'PYTHONDONTWRITEBYTECODE'}
+    return subprocess.run([sys.executable, 'setup.py', 'build_py', *args], cwd=checkout, env=env,
+                          capture_output=True, text=True, timeout=PIP_TIMEOUT)
+
+
 def installed_files(target: Path) -> list[str]:
     package = target / PACKAGE
     if not package.is_dir():
@@ -169,6 +177,26 @@ class InstallProvenance(unittest.TestCase):
         second = self.install()
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(installed_files(self.target), tracked_source_files())
+
+    def test_direct_build_py_compile_accepts_its_own_bytecode(self):
+        # ``python setup.py build_py --compile`` writes ``__pycache__`` under
+        # build/lib in the same run. That output is this build's, not a leftover,
+        # so neither the first run nor a repeat may be refused; planted leftovers
+        # are still refused on this path.
+        first = direct_build_py(self.checkout, '--compile')
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        pycs = sorted((self.checkout / 'build' / 'lib' / PACKAGE / '__pycache__').glob('*.pyc'))
+        self.assertTrue(pycs, 'the compile step must have written bytecode under build/lib')
+        second = direct_build_py(self.checkout, '--compile')
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        plant_leftovers(self.checkout)
+        third = direct_build_py(self.checkout, '--compile')
+        self.assertNotEqual(third.returncode, 0, 'leftovers must still be refused on the direct path')
+        output = third.stdout + third.stderr
+        self.assertIn('REFUSED: stale build output', output)
+        for name in STALE_FILES:
+            self.assertIn('build/lib/' + PACKAGE + '/' + name, output)
+        self.assertNotIn('.pyc', output, 'this build\'s own bytecode must not be named as a leftover')
 
     @unittest.skipUnless(os.environ.get('QUERY_INSTALL_ISOLATED') == '1',
                          'isolated build downloads setuptools; set QUERY_INSTALL_ISOLATED=1 to run')

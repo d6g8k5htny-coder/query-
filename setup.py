@@ -8,7 +8,8 @@ module left there by an install from another commit is copied into the next
 wheel although ``src/`` does not contain it, and an import check of the
 installed package still passes. This ``build_py`` compares the whole
 ``build_lib`` tree with the files it has just produced and refuses to continue
-when anything else is present. Nothing is deleted; the refusal names the
+when anything else is present. Bytecode written by the same run (``--compile``
+or ``-O``) counts as produced. Nothing is deleted; the refusal names the
 leftovers and the documented remedy.
 """
 from __future__ import annotations
@@ -31,7 +32,7 @@ class build_py(_build_py):
 
     def run(self) -> None:
         super().run()
-        produced = {_canonical(path) for path in self.get_outputs(include_bytecode=False)}
+        produced = {_canonical(path) for path in self.get_outputs(include_bytecode=True)}
         stale = []
         for dirpath, _dirnames, filenames in os.walk(self.build_lib):
             for name in filenames:

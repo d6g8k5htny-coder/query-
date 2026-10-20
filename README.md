@@ -60,8 +60,11 @@ remove the leftovers before installing:
 `tests/test_install_provenance.py` installs temporary copies of the checkout,
 clean and deliberately contaminated, and checks that the installed files are
 exactly the tracked package files. A fresh checkout, as in CI, has neither
-directory. An untracked file placed directly in `src/universal_law_query/` is
-source, not a leftover, and is installed like any other module. Editable
+directory. An untracked `.py` module placed directly in `src/universal_law_query/`
+is source, not a leftover, and is installed like any other module; other
+untracked files there are not installed, because the package declares no
+package data. The direct `python setup.py build_py --compile` path counts the
+bytecode it writes in the same run as its own output. Editable
 installs (`pip install -e`) run from `src/` and are unaffected. The custom
 source archive below does not carry `setup.py`; it has no leftovers of its own,
 and installation from it is not one of its offline checks.
