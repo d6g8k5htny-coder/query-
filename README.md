@@ -63,10 +63,12 @@ run that does not recompile it, such as `--skip-build` or a build under
 `python -B`, is refused. Every `bdist` command (`bdist_wheel`, `bdist_egg`,
 `bdist_dumb`, `bdist_rpm`) refuses a leftover anywhere under the shared
 `build/bdist.*/` base (an interrupted build leaves one), the wheel command
-also refuses a pre-generated `--dist-info-dir` holding anything its own
-metadata conversion would not produce, and the wheel command repeats the
-`build/lib/` check, so `--skip-build` cannot bypass it; with `--skip-build`
-every expected output must be present with the bytes of its source. The
+also refuses a pre-generated `--dist-info-dir` that differs in any name or
+byte from this build's own metadata, which a separate `setup.py dist_info` run
+regenerates for the comparison (`REFUSED: pre-generated metadata …`), and the
+wheel command repeats the `build/lib/` check, so `--skip-build` cannot bypass
+it; with `--skip-build` every expected output must be present with the bytes
+of its source. The
 legacy `install`, `install_lib` and `bdist_egg` commands run the same check
 on the directory `install_lib` copies from (`--build-dir`), with or without
 `--skip-build`. The egg-info manifest is regenerated from the tree and a

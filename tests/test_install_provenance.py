@@ -392,7 +392,8 @@ class InstallProvenance(unittest.TestCase):
     def test_pre_generated_dist_info_is_validated(self):
         # ``bdist_wheel --dist-info-dir`` copies the given directory into the
         # wheel as is (pip's build hook passes the one it generated), so it must
-        # hold only what this build's own metadata conversion would produce.
+        # match this build's own metadata, regenerated separately, in names and
+        # bytes.
         meta = self.base / 'meta'
         meta.mkdir()
         generated = direct_setup(self.checkout, 'dist_info', '--output-dir', str(meta))
@@ -400,19 +401,42 @@ class InstallProvenance(unittest.TestCase):
         dist_infos = sorted(meta.glob('*.dist-info'))
         self.assertEqual(len(dist_infos), 1, dist_infos)
         dist_info = dist_infos[0]
-        self.assertTrue((dist_info / 'METADATA').is_file())
+        metadata = dist_info / 'METADATA'
+        top_level = dist_info / 'top_level.txt'
+        original = {path: path.read_bytes() for path in (metadata, top_level)}
+        dist = self.base / 'dist'
+
+        def refused(change: str, path: Path, label: str) -> None:
+            result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
+            output = result.stdout + result.stderr
+            self.assertNotEqual(result.returncode, 0, 'a pre-generated dist-info with ' + change + ' must be refused')
+            self.assertIn('REFUSED: pre-generated metadata', output)
+            self.assertIn(os.path.relpath(path, self.checkout).replace(os.sep, '/') + label, output)
+            self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+
         planted = dist_info / 'private.txt'
         planted.write_text('private\n', encoding='utf-8')
-        dist = self.base / 'dist'
-        result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
-        output = result.stdout + result.stderr
-        self.assertNotEqual(result.returncode, 0, 'a pre-generated dist-info with an extra file must be refused')
-        self.assertIn('REFUSED: stale build output', output)
-        self.assertIn(os.path.relpath(planted, self.checkout).replace(os.sep, '/'), output)
-        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+        refused('an extra file', planted, " (not in this build's metadata)")
         self.assertTrue(planted.is_file(), 'the leftover is reported, not deleted')
-        # The directory as generated is accepted, and the wheel carries exactly it.
         planted.unlink()
+        # Edited bytes at a name the conversion writes are not this build's metadata.
+        metadata.write_bytes(original[metadata] + b'Requires-Dist: injected-dependency\n')
+        refused('edited METADATA', metadata, " (bytes differ from this build's metadata)")
+        metadata.write_bytes(original[metadata])
+        top_level.unlink()
+        refused('a missing file', top_level, ' (missing)')
+        # A case variant is another name, even where the filesystem would not tell.
+        variant = dist_info / 'Top_Level.txt'
+        variant.write_bytes(original[top_level])
+        refused('a case variant of a file', variant, " (not in this build's metadata)")
+        variant.unlink()
+        top_level.write_bytes(original[top_level])
+        # bdist_wheel writes WHEEL and RECORD itself; the conversion produces neither.
+        wheel_file = dist_info / 'WHEEL'
+        wheel_file.write_text('Wheel-Version: 1.0\n', encoding='utf-8')
+        refused('a WHEEL file', wheel_file, " (not in this build's metadata)")
+        wheel_file.unlink()
+        # The directory as generated is accepted, and the wheel carries exactly it.
         result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         wheels = sorted(dist.glob('*.whl'))
@@ -421,8 +445,10 @@ class InstallProvenance(unittest.TestCase):
         with zipfile.ZipFile(wheels[0]) as archive:
             shipped = sorted(name.split('/', 1)[1] for name in archive.namelist()
                              if name.startswith(dist_info.name + '/'))
+            shipped_metadata = archive.read(dist_info.name + '/METADATA')
         self.assertNotIn('private.txt', shipped)
         self.assertIn('METADATA', shipped)
+        self.assertEqual(shipped_metadata, original[metadata])
 
     def test_hard_linked_build_outputs_are_refused(self):
         # A hard link at a produced path shares its bytes with another file.
