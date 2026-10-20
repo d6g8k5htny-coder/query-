@@ -35,10 +35,18 @@ of the installed package still passes. Five commands are guarded:
   leftover manifest back in, so a stale entry can add a file neither to a wheel
   nor to a source distribution; any other file left beside the ones this run
   writes is refused, because ``sdist`` and a direct ``bdist_wheel`` copy the
-  whole directory into the archive.
+  whole directory into the archive. The directory is checked before the
+  writers run as well as after: a writer opens each metadata file by name and
+  would follow a symlink, overwriting whatever it points at, so the directory
+  itself and every entry in it must be regular.
 - ``sdist`` refuses a leftover release tree (``universal_law_query-0.1.0/``,
   kept by ``--keep-temp`` or an interrupted run), which setuptools would
   otherwise fill, archive whole and only then remove.
+
+A symlinked directory above any of these trees (``build/`` above ``build/lib``
+and the staging tree, ``src/`` above the egg-info directory) is refused before
+anything is written, because every write under it would land wherever the link
+points.
 
 Nothing is deleted; each refusal names the leftovers and the remedy, which is
 ``git clean`` for the checkout's own ``build/`` and egg-info directory and
@@ -141,6 +149,41 @@ def _symlinked_sources(build_py_command) -> list[str]:
     return sorted(found)
 
 
+def _symlinked_parents(path: str) -> list[str]:
+    """Directories above a relative ``path`` that are symlinks; a write under
+    ``path`` would land wherever they point. An absolute path, configured
+    deliberately, is taken as given."""
+    found = []
+    if os.path.isabs(path):
+        return found
+    parent = os.path.dirname(os.path.normpath(path))
+    while parent and parent != os.path.dirname(parent):
+        if os.path.islink(parent):
+            found.append(_relative(parent) + ' (symlink)')
+        parent = os.path.dirname(parent)
+    return found
+
+
+def _egg_info_leftovers(tree: str, written: set[str]) -> list[str]:
+    """Everything in the egg-info directory that is not a regular file with a
+    name this run writes: a symlink anywhere (a writer would follow it and
+    overwrite its target), a directory, or a file no writer produces."""
+    found = _symlinked_parents(tree)
+    if os.path.islink(tree):
+        return sorted(found + [_relative(tree) + ' (symlink)'])
+    if not os.path.isdir(tree):
+        return sorted(found)
+    for name in sorted(os.listdir(tree)):
+        path = os.path.join(tree, name)
+        if os.path.islink(path):
+            found.append(_relative(path) + ' (symlink)')
+        elif not os.path.isfile(path):
+            found.append(_relative(path) + ' (not a regular file)')
+        elif name not in written:
+            found.append(_relative(path))
+    return sorted(found)
+
+
 def _refuse_sources(symlinked: list[str]) -> None:
     if symlinked:
         raise SetupError(
@@ -178,7 +221,8 @@ def _guard_build_lib(build_py_command, compare_bytes: bool = False, recompiles: 
     _refuse_sources(_symlinked_sources(build_py_command))
     admit_bytecode = recompiles and not sys.dont_write_bytecode
     produced = {_canonical(path) for path in build_py_command.get_outputs(include_bytecode=admit_bytecode)}
-    unexpected = _unexpected(build_py_command.build_lib, produced)
+    unexpected = sorted(_symlinked_parents(build_py_command.build_lib)
+                        + _unexpected(build_py_command.build_lib, produced))
     if compare_bytes:
         unexpected = sorted(unexpected + _differing_outputs(build_py_command))
     _refuse(unexpected, build_py_command.build_lib)
@@ -205,7 +249,8 @@ class bdist_wheel(_bdist_wheel):
     """Refuse a leftover staging tree, and re-check build/lib even with --skip-build."""
 
     def run(self) -> None:
-        _refuse(_unexpected(self.bdist_dir, set(), empty_dirs=True), self.bdist_dir)
+        _refuse(sorted(_symlinked_parents(self.bdist_dir) + _unexpected(self.bdist_dir, set(), empty_dirs=True)),
+                self.bdist_dir)
         if self.skip_build:
             _guard_skipped_build(self)
         else:
@@ -242,15 +287,17 @@ class egg_info(_egg_info):
         self.filelist = mm.filelist
 
     def run(self) -> None:
-        super().run()
-        # sdist grafts the whole egg-info directory and a direct bdist_wheel copies
-        # it into the dist-info, so a file no writer of this run produced is a
-        # leftover with a path into the archive.
         written = {entry.name for entry in _metadata.entry_points(group='egg_info.writers')}
         written.add('SOURCES.txt')
-        leftovers = [_relative(os.path.join(self.egg_info, name))
-                     for name in sorted(os.listdir(self.egg_info)) if name not in written]
-        _refuse(leftovers, self.egg_info)
+        # Before the writers run: each opens its file by name and would follow a
+        # symlink, overwriting the target, so nothing may be written until the
+        # directory is known to hold only regular files this run rewrites. sdist
+        # grafts the whole directory and a direct bdist_wheel copies it into the
+        # dist-info, so a file no writer produces is a leftover with a path into
+        # the archive; the check is repeated afterwards.
+        _refuse(_egg_info_leftovers(self.egg_info, written), self.egg_info)
+        super().run()
+        _refuse(_egg_info_leftovers(self.egg_info, written), self.egg_info)
 
 
 class sdist(_sdist):

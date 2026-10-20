@@ -70,7 +70,10 @@ stale `SOURCES.txt` is never read back, so it can add a file neither to a wheel
 nor to a `setup.py sdist` archive; any other file left in the egg-info
 directory is refused, because an sdist and a direct `bdist_wheel` would copy
 it into the archive, and so is a leftover sdist release tree
-(`universal_law_query-0.1.0/`), which an sdist would archive whole.
+(`universal_law_query-0.1.0/`), which an sdist would archive whole. A symlink
+in or at the egg-info directory, or a symlinked `build/`, is refused before
+anything is written, because setuptools' metadata writers and build copies
+would otherwise overwrite whatever the link points at.
 `pyproject.toml` also declares that the package ships no package data. Nothing
 is deleted for you; remove the leftovers before installing:
 `git clean -fdX -- build src/universal_law_query.egg-info`.

@@ -8,7 +8,8 @@ untracked-but-not-ignored files, so the real checkout's ``build/`` and
 plant leftovers the way an earlier build leaves them (files, bytecode and
 symlinks under the copy's ``build/lib/``, a wheel staging tree under
 ``build/bdist.*/wheel/``, a stale egg-info manifest or an extra egg-info file,
-an sdist release tree, a symlink among the package sources), then require the
+symlinks in or at the egg-info directory, a symlinked ``build/``, an sdist
+release tree, a symlink among the package sources), then require the
 build to refuse rather than install them, or the manifest to be regenerated
 rather than read back. The post-run byte comparison inside ``build_py`` is
 covered only indirectly: ``force`` already rewrites every output, and the
@@ -559,6 +560,75 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn('REFUSED: symlinked package source', output)
         self.assertIn('src/' + PACKAGE + '/sub (symlink)', output)
         self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE / 'sub').exists())
+
+    def test_symlinked_egg_info_entries_are_refused_before_anything_is_written(self):
+        # egg_info's writers open each metadata file by name and follow a
+        # symlink, so a link planted under a writer's name would have its
+        # target overwritten before any later check. The directory is checked
+        # first, and the directory itself may not be a link either.
+        outside = self.base / 'outside'
+        outside.mkdir()
+        secret = outside / 'secret.txt'
+        secret.write_text('SECRET\n', encoding='utf-8')
+        egg_info = self.checkout / 'src' / 'universal_law_query.egg-info'
+        egg_info.mkdir()
+        try:
+            os.symlink(secret, egg_info / 'SOURCES.txt')
+            os.symlink(secret, egg_info / 'top_level.txt')
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        result = direct_setup(self.checkout, 'egg_info')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked metadata file must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('src/universal_law_query.egg-info/SOURCES.txt (symlink)', output)
+        self.assertIn('src/universal_law_query.egg-info/top_level.txt (symlink)', output)
+        self.assertIn('git clean -fdX -- build src/universal_law_query.egg-info', output)
+        self.assertEqual(secret.read_text(encoding='utf-8'), 'SECRET\n', 'nothing may be written through the link')
+        self.assertTrue((egg_info / 'SOURCES.txt').is_symlink(), 'the link is reported, not replaced')
+        self.assertFalse((egg_info / 'PKG-INFO').exists(), 'no writer may run before the refusal')
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the wheel build regenerates the same egg-info and must refuse too')
+        self.assertIn('src/universal_law_query.egg-info/SOURCES.txt (symlink)', output)
+        self.assertEqual(secret.read_text(encoding='utf-8'), 'SECRET\n')
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+        # The egg-info directory itself as a symlink: nothing may be written
+        # into the link's target.
+        shutil.rmtree(egg_info)
+        os.symlink(outside, egg_info, target_is_directory=True)
+        result = direct_setup(self.checkout, 'egg_info')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked egg-info directory must be refused')
+        self.assertIn('src/universal_law_query.egg-info (symlink)', output)
+        self.assertEqual(sorted(path.name for path in outside.iterdir()), ['secret.txt'],
+                         'nothing may be written into the link target')
+        self.assertTrue(egg_info.is_symlink(), 'the link is reported, not replaced')
+
+    def test_symlinked_build_directory_is_refused(self):
+        # Every write under build/ lands wherever a symlinked build/ points, so
+        # a symlinked directory above build/lib or the staging tree is refused
+        # before anything is written.
+        outside = self.base / 'outside_build'
+        outside.mkdir()
+        try:
+            os.symlink(outside, self.checkout / 'build', target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked build directory must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('build (symlink)', output)
+        self.assertIn('git clean -fdX -- build src/universal_law_query.egg-info', output)
+        self.assertEqual(sorted(outside.iterdir()), [], 'nothing may be written through the link')
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+        self.assertTrue((self.checkout / 'build').is_symlink(), 'the link is reported, not replaced')
+        result = direct_setup(self.checkout, 'build_py')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'the direct build must refuse the same link')
+        self.assertIn('build (symlink)', output)
+        self.assertEqual(sorted(outside.iterdir()), [])
 
     @unittest.skipUnless(os.environ.get('QUERY_INSTALL_ISOLATED') == '1',
                          'isolated build downloads setuptools; set QUERY_INSTALL_ISOLATED=1 to run')
