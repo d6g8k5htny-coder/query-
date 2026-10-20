@@ -371,6 +371,9 @@ class InstallProvenance(unittest.TestCase):
         result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--dist-dir', str(spec_dir))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(sorted(path.name for path in spec_dir.iterdir()), ['universal-law-query.spec'])
+        # setuptools' own bdist_rpm, which the guard extends, writes this install line.
+        self.assertIn('setup.py install --single-version-externally-managed',
+                      (spec_dir / 'universal-law-query.spec').read_text(encoding='utf-8'))
         # The icon an earlier --icon run copied into SOURCES is rewritten too.
         icon = self.base / 'icon.xpm'
         icon.write_text('/* XPM */\n', encoding='utf-8')
@@ -459,6 +462,9 @@ class InstallProvenance(unittest.TestCase):
         # would otherwise write every module into.
         junction = self.checkout / 'build' / 'lib' / PACKAGE
         junction.mkdir(parents=True)
+        # A file behind the junction: no walk may descend into it.
+        beyond = junction / 'beyond.txt'
+        beyond.write_text('beyond the junction\n', encoding='utf-8')
         target = os.path.normcase(os.path.abspath(junction))
         via_isjunction = ('import os\n_t = ' + repr(target) + '\n'
                           'os.path.isjunction = lambda p: os.path.normcase(os.path.abspath(p)) == _t\n')
@@ -484,7 +490,8 @@ class InstallProvenance(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, 'a junction must be refused like a symlink')
             self.assertIn('REFUSED: stale build output', output)
             self.assertIn('build/lib/' + PACKAGE + ' (junction)', output)
-            self.assertEqual(sorted(junction.iterdir()), [], 'nothing may be written through the junction')
+            self.assertNotIn('beyond.txt', output, 'no walk may descend into a junction')
+            self.assertEqual(sorted(junction.iterdir()), [beyond], 'nothing may be written through the junction')
         # A junction among the package sources is refused before any copy.
         shutil.rmtree(self.checkout / 'build')
         source = os.path.normcase(os.path.abspath(self.checkout / SOURCE_DIR))
@@ -1124,12 +1131,13 @@ class InstallProvenance(unittest.TestCase):
             os.symlink(deep, self.checkout / 'x', target_is_directory=True)
         except (OSError, NotImplementedError) as error:
             self.skipTest(f'symlinks are not available here: {error}')
-        for spelling, link in (('bl', 'bl'), ('bl/', 'bl'), ('bl/.', 'bl'), ('x/../escaped', 'x')):
+        for spelling, link in (('bl', 'bl'), ('bl/', 'bl'), ('bl/.', 'bl'), ('x/../escaped', 'x'),
+                               (str(self.checkout / 'bl') + os.sep, 'bl')):
             with self.subTest(spelling=spelling):
                 result = direct_setup(self.checkout, 'build_py', '--build-lib', spelling)
                 output = result.stdout + result.stderr
                 self.assertNotEqual(result.returncode, 0, spelling + ' must be refused')
-                self.assertIn(link + ' (symlink)', output)
+                self.assertEqual(output.count(link + ' (symlink)'), 1, 'each leftover is named once: ' + output)
                 self.assertEqual(victim.read_text(encoding='utf-8'), 'VICTIM = True\n')
                 self.assertFalse((self.base / 'deep' / 'escaped').exists(), 'nothing may be written through x')
         result = direct_setup(self.checkout, 'bdist_wheel', '--bdist-dir', 'bl/', '--dist-dir', str(self.wheels))
@@ -1215,6 +1223,97 @@ class InstallProvenance(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'a tree kept by an earlier invocation is a leftover')
         self.assertIn('REFUSED: stale build output', output)
+
+    def test_symlinked_directory_above_a_manifest_file_is_refused_for_wheels(self):
+        # The manifest names tests/ too; a symlinked directory above any of
+        # its files would put the link's target into the metadata build.
+        moved = self.base / 'tests_elsewhere'
+        shutil.move(str(self.checkout / 'tests'), str(moved))
+        try:
+            os.symlink(moved, self.checkout / 'tests', target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked directory above a manifest file must be refused')
+        self.assertIn('REFUSED: symlinked source', output)
+        self.assertIn('tests (symlink)', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+
+    def test_dist_info_comparison_does_not_descend_into_a_junction(self):
+        meta = self.base / 'meta'
+        meta.mkdir()
+        generated = direct_setup(self.checkout, 'dist_info', '--output-dir', str(meta))
+        self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+        dist_info = sorted(meta.glob('*.dist-info'))[0]
+        licenses = dist_info / 'licenses'
+        (licenses / 'beyond.txt').write_text('beyond the junction\n', encoding='utf-8')
+        target = os.path.normcase(os.path.abspath(licenses))
+        preamble = ('import os\n_t = ' + repr(target) + '\n'
+                    'os.path.isjunction = lambda p: os.path.normcase(os.path.abspath(p)) == _t\n')
+        result = setup_with_preamble(self.checkout, preamble, 'bdist_wheel', '--dist-info-dir', str(dist_info),
+                                     '--dist-dir', str(self.base / 'dist'))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a junction in a pre-generated dist-info must be refused')
+        self.assertIn(os.path.relpath(licenses, self.checkout).replace(os.sep, '/') + ' (junction)', output)
+        self.assertNotIn('beyond.txt', output, 'no walk may descend into a junction')
+
+    @unittest.skipUnless(os.name == 'posix', 'the stand-in rpm tools are shell scripts')
+    def test_bdist_rpm_rewrites_a_newer_source_archive_it_admits(self):
+        # The rpm tree's source archive is admitted by name because every run
+        # copies it again. The copy is forced, so a leftover newer than the
+        # fresh sdist is replaced rather than handed to rpmbuild. Stand-in rpm
+        # and rpmbuild scripts take the place of the real tools.
+        rpm = wheel_staging_dir(self.checkout).parent / 'rpm'
+        archive = rpm / 'SOURCES' / 'universal_law_query-0.1.0.tar.gz'
+        archive.parent.mkdir(parents=True)
+        archive.write_bytes(b'an earlier source archive')
+        future = os.stat(self.checkout / 'setup.py').st_mtime + 365 * 86400
+        os.utime(archive, (future, future))
+        tools = self.base / 'rpmtools'
+        tools.mkdir()
+        (tools / 'rpm').write_text(
+            '#!/bin/sh\necho "universal-law-query-0.1.0-1.src.rpm noarch/universal-law-query-0.1.0-1.noarch.rpm"\n',
+            encoding='utf-8')
+        (tools / 'rpmbuild').write_text(
+            '#!/bin/sh\ntop=""\nwhile [ $# -gt 0 ]; do case "$1" in --define) shift; case "$1" in '
+            '_topdir*) top="${1#_topdir }";; esac;; esac; shift; done\n'
+            'mkdir -p "$top/RPMS/noarch" "$top/SRPMS"\n'
+            'echo stand-in > "$top/SRPMS/universal-law-query-0.1.0-1.src.rpm"\n'
+            'echo stand-in > "$top/RPMS/noarch/universal-law-query-0.1.0-1.noarch.rpm"\n', encoding='utf-8')
+        for tool in ('rpm', 'rpmbuild'):
+            os.chmod(tools / tool, 0o755)
+        env = dict(os.environ)
+        env['PYTHONDONTWRITEBYTECODE'] = '1'
+        env['PATH'] = str(tools) + os.pathsep + env.get('PATH', '')
+        dist = self.base / 'dist'
+        dist.mkdir()
+        result = subprocess.run([sys.executable, 'setup.py', 'bdist_rpm', '--dist-dir', str(dist)], cwd=self.checkout,
+                                env=env, capture_output=True, text=True, timeout=PIP_TIMEOUT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotEqual(archive.read_bytes(), b'an earlier source archive', 'the leftover archive must be replaced')
+        with tarfile.open(archive) as fresh:
+            self.assertIn('universal_law_query-0.1.0/setup.py', fresh.getnames())
+
+    def test_install_lib_skip_build_refuses_bytecode_nothing_recompiled(self):
+        # With compilation configured, build_py writes bytecode; a later
+        # install_lib --skip-build recompiles nothing, so a cache file there is
+        # not this run's output, and the copy would keep a newer one.
+        (self.checkout / 'setup.cfg').write_text('[build_py]\ncompile = 1\n', encoding='utf-8')
+        built = direct_build_py(self.checkout)
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        cache = Path(importlib.util.cache_from_source(
+            str(self.checkout / 'build' / 'lib' / PACKAGE / '__init__.py'), optimization=''))
+        self.assertTrue(cache.is_file(), 'the configured compile step must have written bytecode')
+        cache.write_bytes(b'PLANTED BYTECODE')
+        env = {key: value for key, value in os.environ.items() if key != 'PYTHONDONTWRITEBYTECODE'}
+        result = subprocess.run([sys.executable, 'setup.py', 'install_lib', '--skip-build', '--install-dir',
+                                 str(self.target)], cwd=self.checkout, env=env, capture_output=True, text=True,
+                                timeout=PIP_TIMEOUT)
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'bytecode nothing recompiled must be refused')
+        self.assertIn(cache.relative_to(self.checkout).as_posix(), output)
+        self.assertEqual(installed_files(self.target), [])
 
     def test_a_symlinked_temporary_directory_is_not_refused(self):
         # pip builds the metadata under TMPDIR, an absolute path that is taken
