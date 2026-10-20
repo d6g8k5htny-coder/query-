@@ -55,14 +55,25 @@ control above cannot see either. The checkout's `setup.py` therefore refuses to
 build when `build/lib/` holds anything this source tree did not produce
 (`REFUSED: stale build output …`, naming the files), before copying anything
 and again afterwards; every symlink under `build/lib/` is refused wherever it
-points, because the wheel staging step would follow it. The wheel command
-refuses a leftover staging tree under `build/bdist.*/wheel/` (an interrupted
-build leaves one) and repeats the `build/lib/` check, so `--skip-build` cannot
-bypass it. The egg-info manifest is regenerated from the tree and a stale
-`SOURCES.txt` is never read back, so it can add a file neither to a wheel nor
-to a `setup.py sdist` archive; `pyproject.toml` also declares that the package
-ships no package data. Nothing is deleted for you; remove the leftovers before
-installing: `git clean -fdX -- build src/universal_law_query.egg-info`.
+points, because the wheel staging step would follow it, and so is a symlink
+among the package sources in `src/`, because the copy would ship its target.
+Bytecode under `build/lib/` is accepted only from the run that compiles it
+(`build_py --compile` with bytecode writing enabled); a cache file found by a
+run that does not recompile it, such as `--skip-build` or a build under
+`python -B`, is refused. The wheel command refuses a leftover staging tree
+under `build/bdist.*/wheel/` (an interrupted build leaves one) and repeats the
+`build/lib/` check, so `--skip-build` cannot bypass it; with `--skip-build`
+every expected output must be present with the bytes of its source. The
+legacy `install`, `install_lib` and `bdist_egg` commands with `--skip-build`
+run the same check. The egg-info manifest is regenerated from the tree and a
+stale `SOURCES.txt` is never read back, so it can add a file neither to a wheel
+nor to a `setup.py sdist` archive; any other file left in the egg-info
+directory is refused, because an sdist and a direct `bdist_wheel` would copy
+it into the archive, and so is a leftover sdist release tree
+(`universal_law_query-0.1.0/`), which an sdist would archive whole.
+`pyproject.toml` also declares that the package ships no package data. Nothing
+is deleted for you; remove the leftovers before installing:
+`git clean -fdX -- build src/universal_law_query.egg-info`.
 `tests/test_install_provenance.py` installs temporary copies of the checkout,
 clean and deliberately contaminated, and checks that the installed files are
 exactly the tracked package files. A fresh checkout, as in CI, has neither

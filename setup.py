@@ -6,43 +6,62 @@ lookup, verification or refusal behaviour of the package.
 setuptools reuses ``build/`` between builds and removes nothing from it. A
 module left under ``build/lib`` by an install from another commit is copied
 into the next wheel although ``src/`` does not contain it, and an import check
-of the installed package still passes. Three commands are guarded:
+of the installed package still passes. Five commands are guarded:
 
-- ``build_py`` compares the whole ``build/lib`` tree with the files it
-  produces, before copying anything and again afterwards, and refuses when
-  anything else is present. Every symlink under the tree is refused wherever it
-  points, because the walk does not follow symlinks but the wheel staging step
+- ``build_py`` refuses a symlink among the package sources it would copy, or a
+  symlinked directory above one, because the copy and the byte comparison
+  below both follow the link and would ship its target as a file of this tree.
+  It then compares the whole ``build/lib`` tree with the files it produces,
+  before copying anything and again afterwards, and refuses when anything else
+  is present. Every symlink under the tree is refused wherever it points,
+  because the walk does not follow symlinks but the wheel staging step
   dereferences them. The run rewrites every file it produces (setuptools would
   otherwise skip a destination that is newer than its source), and afterwards
   each produced module's bytes are compared with its source, so bytes left at a
-  path this run writes are replaced, never shipped. Bytecode written by the same
-  run (``--compile`` or ``-O``) counts as produced and is recompiled.
+  path this run writes are replaced, never shipped. Bytecode counts as produced
+  only when this run recompiles it (``--compile`` or ``-O`` with bytecode
+  writing enabled); under ``python -B`` or ``PYTHONDONTWRITEBYTECODE`` setuptools
+  skips the compile step, so a cache file found under ``build/lib`` is refused.
 - ``bdist_wheel`` refuses a leftover staging tree under ``build/bdist.*/wheel``
   (an interrupted build leaves one, and the next build archives whatever it
   holds) and repeats the ``build/lib`` comparison, so ``--skip-build`` cannot
-  bypass it; with ``--skip-build`` nothing is rebuilt, so the byte comparison
-  runs there instead.
+  bypass it. With ``--skip-build`` nothing is rebuilt, so the byte comparison
+  runs there instead, every expected output must be present as a regular file,
+  and bytecode, which nothing recompiles, is refused.
+- ``install_lib`` applies the same skipped-build comparison, which covers the
+  legacy ``install``, ``install_lib`` and ``bdist_egg`` commands with
+  ``--skip-build``.
 - ``egg_info`` regenerates ``SOURCES.txt`` from the tree and never reads a
   leftover manifest back in, so a stale entry can add a file neither to a wheel
-  nor to a source distribution.
+  nor to a source distribution; any other file left beside the ones this run
+  writes is refused, because ``sdist`` and a direct ``bdist_wheel`` copy the
+  whole directory into the archive.
+- ``sdist`` refuses a leftover release tree (``universal_law_query-0.1.0/``,
+  kept by ``--keep-temp`` or an interrupted run), which setuptools would
+  otherwise fill, archive whole and only then remove.
 
 Nothing is deleted; each refusal names the leftovers and the remedy, which is
-``git clean`` for the checkout's own ``build/`` and otherwise names the
-configured directory.
+``git clean`` for the checkout's own ``build/`` and egg-info directory and
+otherwise names the directory.
 """
 from __future__ import annotations
 
 import filecmp
 import os
+import sys
+from importlib import metadata as _metadata
 
 from setuptools import setup
 from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.egg_info import egg_info as _egg_info
 from setuptools.command.egg_info import manifest_maker as _manifest_maker
+from setuptools.command.install_lib import install_lib as _install_lib
+from setuptools.command.sdist import sdist as _sdist
 from setuptools.errors import SetupError
 
-REMEDY = 'git clean -fdX -- build src/universal_law_query.egg-info'
+EGG_INFO = 'src/universal_law_query.egg-info'
+REMEDY = 'git clean -fdX -- build ' + EGG_INFO
 
 
 def _canonical(path: str) -> str:
@@ -50,17 +69,24 @@ def _canonical(path: str) -> str:
 
 
 def _relative(path: str) -> str:
-    return os.path.relpath(path).replace(os.sep, '/')
+    try:
+        relative = os.path.relpath(path)
+    except ValueError:  # another drive on Windows: no relative form exists
+        relative = os.path.abspath(path)
+    return relative.replace(os.sep, '/')
 
 
-def _unexpected(tree: str, produced: set[str]) -> list[str]:
-    """Files under ``tree`` that are not in ``produced``, and every symlink."""
+def _unexpected(tree: str, produced: set[str], empty_dirs: bool = False) -> list[str]:
+    """Files under ``tree`` that are not in ``produced``, every symlink, and
+    with ``empty_dirs`` every empty directory below the tree itself."""
     found = []
     if os.path.islink(tree):
         return [_relative(tree) + ' (symlink)']
     if not os.path.isdir(tree):
         return found
     for dirpath, dirnames, filenames in os.walk(tree):
+        if empty_dirs and dirpath != tree and not dirnames and not filenames:
+            found.append(_relative(dirpath) + ' (empty directory)')
         for name in dirnames:
             if os.path.islink(os.path.join(dirpath, name)):
                 found.append(_relative(os.path.join(dirpath, name)) + ' (symlink)')
@@ -74,14 +100,12 @@ def _unexpected(tree: str, produced: set[str]) -> list[str]:
 
 
 def _remedy(tree: str) -> str:
-    """The checkout's own build/ is cleaned by git; another directory is named."""
-    try:
-        relative = os.path.relpath(tree)
-    except ValueError:  # another drive on Windows
-        relative = None
-    if relative is not None and (relative == 'build' or relative.startswith('build' + os.sep)):
-        return REMEDY
-    return ('remove the named files under ' + _relative(tree)
+    """The checkout's own build/ and egg-info are cleaned by git; another directory is named."""
+    relative = _relative(tree)
+    for cleaned in ('build', EGG_INFO):
+        if relative == cleaned or relative.startswith(cleaned + '/'):
+            return REMEDY
+    return ('remove the named files under ' + relative
             + ' yourself; it is outside the checkout\'s build/, so ' + REMEDY + ' does not reach it')
 
 
@@ -93,8 +117,8 @@ def _refuse(unexpected: list[str], tree: str) -> None:
             + '. Remove build leftovers before installing: ' + _remedy(tree))
 
 
-def _differing_outputs(build_py_command) -> list[str]:
-    """Produced module and data paths whose bytes are not this source tree's."""
+def _source_pairs(build_py_command) -> list[tuple[str, str]]:
+    """(source, output) for every module and data file the build copies."""
     pairs = []
     for package, module, module_file in build_py_command.find_all_modules():
         output = build_py_command.get_module_outfile(build_py_command.build_lib, package.split('.'), module)
@@ -102,19 +126,67 @@ def _differing_outputs(build_py_command) -> list[str]:
     for _package, src_dir, build_dir, filenames in build_py_command.data_files:
         for filename in filenames:
             pairs.append((os.path.join(src_dir, filename), os.path.join(build_dir, filename)))
+    return pairs
+
+
+def _symlinked_sources(build_py_command) -> list[str]:
+    """Package sources, and directories above them, that are symlinks."""
+    found = set()
+    for source, _output in _source_pairs(build_py_command):
+        path = os.path.normpath(source)
+        while path and path != os.path.dirname(path):
+            if os.path.islink(path):
+                found.add(_relative(path) + ' (symlink)')
+            path = os.path.dirname(path)
+    return sorted(found)
+
+
+def _refuse_sources(symlinked: list[str]) -> None:
+    if symlinked:
+        raise SetupError(
+            'REFUSED: symlinked package source, which would ship the link\'s target rather than a file of '
+            'this source tree: ' + ', '.join(symlinked)
+            + '. Replace the symlink with a regular file before installing.')
+
+
+def _differing_outputs(build_py_command) -> list[str]:
+    """Produced module and data paths that are missing, not regular files, or
+    whose bytes are not this source tree's."""
     found = []
-    for source, output in pairs:
-        if os.path.isfile(output) and not filecmp.cmp(source, output, shallow=False):
+    for source, output in _source_pairs(build_py_command):
+        if os.path.islink(output):
+            continue  # already reported by the tree walk
+        if not os.path.exists(output):
+            found.append(_relative(output) + ' (missing)')
+        elif not os.path.isfile(output):
+            found.append(_relative(output) + ' (not a regular file)')
+        elif not filecmp.cmp(source, output, shallow=False):
             found.append(_relative(output) + ' (bytes differ from ' + _relative(source) + ')')
     return found
 
 
-def _guard_build_lib(build_py_command, compare_bytes: bool = False) -> None:
-    produced = {_canonical(path) for path in build_py_command.get_outputs(include_bytecode=True)}
+def _guard_build_lib(build_py_command, compare_bytes: bool = False, recompiles: bool = True) -> None:
+    """Refuse a symlinked source, then anything under build/lib that is not
+    this source tree's output.
+
+    Bytecode is admitted only when this run rewrites it: ``recompiles`` is
+    false when nothing is rebuilt (``--skip-build``), and setuptools skips the
+    compile step under ``python -B`` or ``PYTHONDONTWRITEBYTECODE``. With
+    ``compare_bytes`` each produced module's and data file's bytes are also
+    checked against its source, and every expected output must be present.
+    """
+    _refuse_sources(_symlinked_sources(build_py_command))
+    admit_bytecode = recompiles and not sys.dont_write_bytecode
+    produced = {_canonical(path) for path in build_py_command.get_outputs(include_bytecode=admit_bytecode)}
     unexpected = _unexpected(build_py_command.build_lib, produced)
     if compare_bytes:
         unexpected = sorted(unexpected + _differing_outputs(build_py_command))
     _refuse(unexpected, build_py_command.build_lib)
+
+
+def _guard_skipped_build(command) -> None:
+    """A command that ships build/lib without rebuilding it compares the bytes it has."""
+    _guard_build_lib(command.get_finalized_command('build_py'), compare_bytes=True, recompiles=False)
 
 
 class build_py(_build_py):
@@ -133,10 +205,21 @@ class bdist_wheel(_bdist_wheel):
     """Refuse a leftover staging tree, and re-check build/lib even with --skip-build."""
 
     def run(self) -> None:
-        _refuse(_unexpected(self.bdist_dir, set()), self.bdist_dir)
-        # Without --skip-build the build rewrites build/lib next; with it, the
-        # bytes already there are what gets shipped, so compare them now.
-        _guard_build_lib(self.get_finalized_command('build_py'), compare_bytes=bool(self.skip_build))
+        _refuse(_unexpected(self.bdist_dir, set(), empty_dirs=True), self.bdist_dir)
+        if self.skip_build:
+            _guard_skipped_build(self)
+        else:
+            # The build rewrites build/lib next and checks it again itself.
+            _guard_build_lib(self.get_finalized_command('build_py'))
+        super().run()
+
+
+class install_lib(_install_lib):
+    """The legacy install, install_lib and bdist_egg paths with --skip-build copy build/lib as is."""
+
+    def run(self) -> None:
+        if self.skip_build:
+            _guard_skipped_build(self)
         super().run()
 
 
@@ -148,6 +231,8 @@ class _fresh_manifest_maker(_manifest_maker):
 
 
 class egg_info(_egg_info):
+    """Regenerate the manifest, and refuse any leftover beside the files this run writes."""
+
     def find_sources(self) -> None:
         manifest_filename = os.path.join(self.egg_info, 'SOURCES.txt')
         mm = _fresh_manifest_maker(self.distribution)
@@ -156,5 +241,25 @@ class egg_info(_egg_info):
         mm.run()
         self.filelist = mm.filelist
 
+    def run(self) -> None:
+        super().run()
+        # sdist grafts the whole egg-info directory and a direct bdist_wheel copies
+        # it into the dist-info, so a file no writer of this run produced is a
+        # leftover with a path into the archive.
+        written = {entry.name for entry in _metadata.entry_points(group='egg_info.writers')}
+        written.add('SOURCES.txt')
+        leftovers = [_relative(os.path.join(self.egg_info, name))
+                     for name in sorted(os.listdir(self.egg_info)) if name not in written]
+        _refuse(leftovers, self.egg_info)
 
-setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'egg_info': egg_info})
+
+class sdist(_sdist):
+    """Refuse a leftover release tree; setuptools would fill it, archive it whole and only then remove it."""
+
+    def make_release_tree(self, base_dir, files) -> None:
+        _refuse(_unexpected(base_dir, set()), base_dir)
+        super().make_release_tree(base_dir, files)
+
+
+setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'install_lib': install_lib,
+                'egg_info': egg_info, 'sdist': sdist})

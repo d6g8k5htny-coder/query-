@@ -5,13 +5,18 @@ Scientific effect: NONE. These controls exercise packaging only.
 Every case installs from a temporary copy of the checkout's tracked and
 untracked-but-not-ignored files, so the real checkout's ``build/`` and
 ``egg-info`` directories are never read or written. The contaminated cases
-plant leftovers the way an earlier build leaves them (files and symlinks under
-the copy's ``build/lib/``, a wheel staging tree under ``build/bdist.*/wheel/``,
-a stale egg-info manifest), then require the build to refuse rather than
-install them, or the manifest to be regenerated rather than read back.
+plant leftovers the way an earlier build leaves them (files, bytecode and
+symlinks under the copy's ``build/lib/``, a wheel staging tree under
+``build/bdist.*/wheel/``, a stale egg-info manifest or an extra egg-info file,
+an sdist release tree, a symlink among the package sources), then require the
+build to refuse rather than install them, or the manifest to be regenerated
+rather than read back. The post-run byte comparison inside ``build_py`` is
+covered only indirectly: ``force`` already rewrites every output, and the
+``--skip-build`` cases exercise the comparison itself.
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -114,6 +119,15 @@ def plant_stale_manifest(checkout: Path) -> Path:
     return egg_info / 'SOURCES.txt'
 
 
+def release_tree_name(checkout: Path) -> str:
+    # The directory sdist stages the archive in (``<name>-<version>``), asked of
+    # setuptools itself.
+    result = direct_setup(checkout, '--fullname')
+    if result.returncode != 0 or not result.stdout.strip():
+        raise AssertionError(result.stdout + result.stderr)
+    return result.stdout.strip().splitlines()[-1]
+
+
 def sdist_members(dist_dir: Path) -> list[str]:
     tarballs = sorted(dist_dir.glob('*.tar.gz'))
     if len(tarballs) != 1:
@@ -140,7 +154,10 @@ class InstallProvenance(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.base = Path(self.tmp.name)
+        # Resolved, so that expectations derived from these paths match the
+        # cwd-relative paths setup.py reports even when the temporary directory
+        # itself sits behind a symlink.
+        self.base = Path(self.tmp.name).resolve()
         self.checkout = self.base / 'checkout'
         self.checkout.mkdir()
         copy_checkout(self.checkout)
@@ -238,6 +255,18 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn('git clean -fdX -- build src/universal_law_query.egg-info', output)
         self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
         self.assertTrue(staged.is_file(), 'the leftover is reported, not deleted')
+        # An empty leftover directory is refused with the same message rather
+        # than failing later, when the dist-info copy finds it in the way.
+        staged.unlink()
+        empty = staged.parent.parent / (PACKAGE + '-0.1.0.dist-info')
+        empty.mkdir()
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'an empty staging directory must be refused as a leftover')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(empty.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
+        self.assertIn(staged.parent.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
 
     def test_direct_bdist_wheel_skip_build_still_refuses_stale_build_lib(self):
         # ``--skip-build`` never runs build_py, so the wheel command must repeat
@@ -338,8 +367,8 @@ class InstallProvenance(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0, 'a symlinked file must be refused')
         self.assertIn('build/lib/' + PACKAGE + '/cli.py (symlink)', output)
-        self.assertEqual(victim.read_text(encoding='utf-8'), 'ORIGINAL = True\n',
-                         'nothing may be written through the symlink')
+        self.assertTrue((build_lib / 'cli.py').is_symlink(), 'the symlink is reported, not replaced')
+        self.assertEqual(victim.read_text(encoding='utf-8'), 'ORIGINAL = True\n')
 
     def test_second_clean_install_after_a_first_is_not_refused(self):
         # The guard must not mistake this build's own earlier output for leftovers.
@@ -370,6 +399,166 @@ class InstallProvenance(unittest.TestCase):
         for name in STALE_FILES:
             self.assertIn('build/lib/' + PACKAGE + '/' + name, output)
         self.assertNotIn('.pyc', output, 'this build\'s own bytecode must not be named as a leftover')
+
+    def test_bytecode_is_refused_when_byte_compiling_is_disabled(self):
+        # Under ``python -B`` or PYTHONDONTWRITEBYTECODE setuptools skips the
+        # compile step of ``build_py --compile``, so a cache file found at an
+        # expected path was written by something else and would be shipped as is.
+        planted = Path(importlib.util.cache_from_source(
+            str(self.checkout / 'build' / 'lib' / PACKAGE / 'catalog.py'), optimization=''))
+        planted.parent.mkdir(parents=True)
+        planted.write_bytes(b'PLANTED BYTECODE')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'build_py', '--compile', 'bdist_wheel', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'bytecode nothing recompiles must not be admitted')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(planted.relative_to(self.checkout).as_posix(), output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+        self.assertEqual(planted.read_bytes(), b'PLANTED BYTECODE', 'the leftover is reported, not deleted')
+
+    def test_skip_build_after_a_compile_build_refuses_the_bytecode(self):
+        # Bytecode counts as produced only within the run that writes it. A
+        # later --skip-build wheel recompiles nothing and cannot vouch for the
+        # cache files it finds, so it refuses them; rebuild without --compile.
+        built = direct_build_py(self.checkout, '--compile')
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        pycs = sorted((self.checkout / 'build' / 'lib' / PACKAGE / '__pycache__').glob('*.pyc'))
+        self.assertTrue(pycs, 'the compile step must have written bytecode under build/lib')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_wheel', '--skip-build', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a skipped build must not ship bytecode it cannot vouch for')
+        self.assertIn('REFUSED: stale build output', output)
+        for pyc in pycs:
+            self.assertIn(pyc.relative_to(self.checkout).as_posix(), output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+
+    def test_direct_bdist_wheel_skip_build_refuses_missing_or_irregular_outputs(self):
+        # With nothing built, --skip-build would archive a wheel without the
+        # package; an expected output that is absent, or present but not a
+        # regular file, is refused.
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_wheel', '--skip-build', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a skipped build with no build output must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        for name in tracked_source_files():
+            if name.endswith('.py'):
+                self.assertIn('build/lib/' + PACKAGE + '/' + name + ' (missing)', output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+        built = direct_setup(self.checkout, 'build_py')
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        irregular = self.checkout / 'build' / 'lib' / PACKAGE / 'cli.py'
+        irregular.unlink()
+        irregular.mkdir()
+        result = direct_setup(self.checkout, 'bdist_wheel', '--skip-build', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a directory at a module path must be refused')
+        self.assertIn('build/lib/' + PACKAGE + '/cli.py (not a regular file)', output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+
+    def test_leftover_egg_info_files_are_refused(self):
+        # The manifest maker grafts the whole egg-info directory into an sdist,
+        # and a direct bdist_wheel copies it into the dist-info, so a file that
+        # no writer of this run produces has a path into the archive.
+        egg_info = self.checkout / 'src' / 'universal_law_query.egg-info'
+        egg_info.mkdir()
+        leftover = egg_info / 'private_notes.txt'
+        leftover.write_text('private\n', encoding='utf-8')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'sdist', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'an sdist must not carry a leftover egg-info file')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn('src/universal_law_query.egg-info/private_notes.txt', output)
+        self.assertIn('git clean -fdX -- build src/universal_law_query.egg-info', output)
+        self.assertEqual(sorted(dist.glob('*.tar.gz')) if dist.exists() else [], [])
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a wheel build regenerates the same egg-info and must refuse too')
+        self.assertIn('src/universal_law_query.egg-info/private_notes.txt', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+        self.assertTrue(leftover.is_file(), 'the leftover is reported, not deleted')
+
+    def test_reused_sdist_release_tree_is_refused(self):
+        # setuptools fills the release tree, archives it whole and removes it
+        # only afterwards, so a tree kept by --keep-temp or an interrupted run
+        # would publish whatever it still holds.
+        release_tree = self.checkout / release_tree_name(self.checkout)
+        release_tree.mkdir()
+        leftover = release_tree / 'private.txt'
+        leftover.write_text('private\n', encoding='utf-8')
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'sdist', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'an sdist must not archive a leftover release tree')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(release_tree.name + '/private.txt', output)
+        self.assertIn('under ' + release_tree.name, output)
+        self.assertEqual(sorted(dist.glob('*.tar.gz')) if dist.exists() else [], [])
+        self.assertTrue(leftover.is_file(), 'the leftover is reported, not deleted')
+        # An empty directory holds nothing to publish and is not a leftover.
+        leftover.unlink()
+        result = direct_setup(self.checkout, 'sdist', '--dist-dir', str(dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        clean = self.base / 'clean'
+        clean.mkdir()
+        copy_checkout(clean)
+        reference = direct_setup(clean, 'sdist', '--dist-dir', str(self.base / 'clean_dist'))
+        self.assertEqual(reference.returncode, 0, reference.stdout + reference.stderr)
+        self.assertEqual(sdist_members(dist), sdist_members(self.base / 'clean_dist'))
+
+    def test_symlinked_package_sources_are_refused(self):
+        # The copy follows a symlink in src/, and the byte comparison follows it
+        # too, so the link's target would ship as a module of this tree. Every
+        # symlinked source, and every symlinked directory above one, is refused
+        # before anything is copied.
+        private = self.base / 'private.py'
+        private.write_text('PRIVATE = True\n', encoding='utf-8')
+        leak = self.checkout / SOURCE_DIR / 'leak.py'
+        try:
+            os.symlink(private, leak)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        result = self.wheel()
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked source must be refused')
+        self.assertIn('REFUSED: symlinked package source', output)
+        self.assertIn('src/' + PACKAGE + '/leak.py (symlink)', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+        self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE / 'leak.py').exists(),
+                         'nothing may be copied before the refusal')
+        self.assertTrue(leak.is_symlink(), 'the symlink is reported, not replaced')
+        leak.unlink()
+        # A skipped build compares bytes through the link and would find them
+        # equal; the link itself is refused.
+        built = direct_setup(self.checkout, 'build_py')
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        catalog = self.checkout / SOURCE_DIR / 'catalog.py'
+        copy = self.base / 'catalog_copy.py'
+        shutil.copy2(catalog, copy)
+        catalog.unlink()
+        os.symlink(copy, catalog)
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist_wheel', '--skip-build', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'equal bytes behind a symlink are still not this tree\'s')
+        self.assertIn('src/' + PACKAGE + '/catalog.py (symlink)', output)
+        self.assertEqual(sorted(dist.glob('*.whl')) if dist.exists() else [], [])
+        catalog.unlink()
+        shutil.copy2(copy, catalog)
+        # A symlinked package directory is refused through the modules under it.
+        outside = self.base / 'outside_pkg'
+        outside.mkdir()
+        (outside / '__init__.py').write_text('OUTSIDE = True\n', encoding='utf-8')
+        os.symlink(outside, self.checkout / SOURCE_DIR / 'sub', target_is_directory=True)
+        result = direct_setup(self.checkout, 'build_py')
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a symlinked package directory must be refused')
+        self.assertIn('REFUSED: symlinked package source', output)
+        self.assertIn('src/' + PACKAGE + '/sub (symlink)', output)
+        self.assertFalse((self.checkout / 'build' / 'lib' / PACKAGE / 'sub').exists())
 
     @unittest.skipUnless(os.environ.get('QUERY_INSTALL_ISOLATED') == '1',
                          'isolated build downloads setuptools; set QUERY_INSTALL_ISOLATED=1 to run')
