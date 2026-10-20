@@ -6,7 +6,7 @@ lookup, verification or refusal behaviour of the package.
 setuptools reuses ``build/`` between builds and removes nothing from it. A
 module left under ``build/lib`` by an install from another commit is copied
 into the next wheel although ``src/`` does not contain it, and an import check
-of the installed package still passes. Eight commands are guarded:
+of the installed package still passes. Nine commands are guarded:
 
 - ``build_py`` refuses a symlink among the package sources it would copy, or a
   symlinked directory above one, because the copy and the byte comparison
@@ -15,7 +15,8 @@ of the installed package still passes. Eight commands are guarded:
   before copying anything and again afterwards, and refuses when anything else
   is present. Every symlink under the tree is refused wherever it points,
   because the walk does not follow symlinks but the wheel staging step
-  dereferences them (a Windows junction counts as a symlink throughout); a
+  dereferences them (a Windows junction counts as a symlink throughout, and no
+  walk descends into one); a
   hard-linked file is refused as well, since its bytes are shared with another
   path. The run rewrites every file it produces (setuptools would
   otherwise skip a destination that is newer than its source), and afterwards
@@ -25,11 +26,11 @@ of the installed package still passes. Eight commands are guarded:
   writing enabled); under ``python -B`` or ``PYTHONDONTWRITEBYTECODE`` setuptools
   skips the compile step, so a cache file found under ``build/lib`` is refused.
   A dry run writes nothing, so the comparison after the run is skipped there;
-  the leftover check before it still applies.
-- ``bdist_wheel`` refuses a leftover anywhere under the shared bdist base
-  (``build/bdist.<platform>``, where the wheel, egg, dumb and rpm staging
-  trees live; an interrupted build leaves one, and the next build archives
-  whatever it holds) and under its own staging directory, refuses a
+  the leftover check before it still applies. An editable build copies
+  nothing (the install runs from ``src/``), so there is nothing to guard.
+- ``bdist_wheel`` refuses a leftover anywhere in its own staging tree (by
+  default ``build/bdist.<platform>/wheel``; an interrupted build leaves one,
+  and the next build archives whatever it holds), refuses a
   pre-generated ``--dist-info-dir`` that differs in any name or byte from this
   build's own metadata, which a separate ``dist_info`` run of this script
   regenerates for the comparison (the directory is copied into the wheel as
@@ -37,13 +38,23 @@ of the installed package still passes. Eight commands are guarded:
   bypass it. With ``--skip-build`` nothing is rebuilt, so the byte comparison
   runs there instead, every expected output must be present as a regular file,
   and bytecode, which nothing recompiles, is refused.
+- ``editable_wheel`` applies the same ``--dist-info-dir`` comparison; pip's
+  editable install passes the metadata it generated, and the command copies it
+  into the editable wheel as is.
 - ``install_lib`` applies the same comparison to the directory it copies from
   (its ``--build-dir``, by default ``build/lib``), whether or not it rebuilt
   it, which covers the legacy ``install``, ``install_lib`` and ``bdist_egg``
-  commands with and without ``--skip-build``.
-- ``bdist_egg``, ``bdist_dumb`` and ``bdist_rpm`` refuse a leftover under the
-  shared bdist base and their own staging trees the same way; the legacy
-  archives are assembled from whatever those trees hold.
+  commands with and without ``--skip-build``. Bytecode is admitted only in
+  ``build/lib`` after this run recompiled it there; in another directory
+  nothing recompiled it, and the copy keeps a cache file newer than its source.
+- ``bdist_egg`` and ``bdist_dumb`` refuse a leftover in their own staging
+  trees the same way; the legacy archives are assembled from whatever those
+  trees hold. ``bdist_rpm`` refuses one in its rpm tree, except the spec and
+  source archive that every run rewrites (forced) and a successful run leaves
+  behind with empty directories. Each command reads only its own tree, so a
+  sibling's tree under ``build/bdist.<platform>`` blocks nothing else. A tree
+  that an earlier command of the same run kept (``bdist`` keeps one between
+  two formats of a command) is that run's own output and is admitted.
 - ``egg_info`` regenerates ``SOURCES.txt`` from the tree and never reads a
   leftover manifest back in, so a stale entry can add a file neither to a wheel
   nor to a source distribution; any other file left beside the ones this run
@@ -53,7 +64,10 @@ of the installed package still passes. Eight commands are guarded:
   would follow a symlink, overwriting whatever it points at, so the directory
   itself and every entry in it must be a regular file with a single link; a
   hard-linked file shares its bytes with another path and would be written
-  through just the same.
+  through just the same. A symlink among the files the manifest names, or a
+  symlinked directory above one, is refused when the manifest is built: the
+  metadata conversion reads ``README.md`` into ``METADATA`` and copies the
+  license files into the wheel, following any link.
 - ``sdist`` refuses a symlink among the files the manifest names, or a
   symlinked directory above one, before copying anything: the release tree
   would otherwise hold the link's target as a regular file. It also refuses a
@@ -64,7 +78,9 @@ of the installed package still passes. Eight commands are guarded:
 A symlinked directory above any of these trees (``build/`` above ``build/lib``
 and the staging tree, ``src/`` above the egg-info directory) is refused before
 anything is written, because every write under it would land wherever the link
-points.
+points. A tree named with a trailing separator or ``.`` is checked as the link
+it names, and one reached through ``..`` after a symlinked directory is refused
+as well. The output directory (``dist/`` or ``--dist-dir``) is taken as given.
 
 Nothing is deleted; each refusal names the leftovers and the remedy, which is
 ``git clean`` for the checkout's own ``build/`` and egg-info directory and
@@ -81,15 +97,16 @@ import tempfile
 from importlib import metadata as _metadata
 
 from setuptools import setup
-# The two legacy commands live in distutils; import them through the name
-# setuptools itself uses. Importing ``setuptools._distutils.…`` directly would
-# load second copies of those modules and rebind the shared package's
-# attributes to unpatched classes.
+# setuptools has no bdist_dumb of its own and runs distutils' command; import
+# it through the name setuptools itself uses. Importing
+# ``setuptools._distutils.…`` directly would load a second copy of that module
+# and rebind the shared package's attributes to unpatched classes.
 from distutils.command.bdist_dumb import bdist_dumb as _bdist_dumb  # noqa: I001
-from distutils.command.bdist_rpm import bdist_rpm as _bdist_rpm
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
+from setuptools.command.bdist_rpm import bdist_rpm as _bdist_rpm
 from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.build_py import build_py as _build_py
+from setuptools.command.editable_wheel import editable_wheel as _editable_wheel
 from setuptools.command.egg_info import egg_info as _egg_info
 from setuptools.command.egg_info import manifest_maker as _manifest_maker
 from setuptools.command.install_lib import install_lib as _install_lib
@@ -121,8 +138,10 @@ def _alias(path: str) -> str | None:
 
     A Windows junction is a directory reparse point that ``os.path.islink``
     does not report; Python 3.12 has ``os.path.isjunction``, and older
-    interpreters expose the reparse tag on ``os.lstat``.
+    interpreters expose the reparse tag on ``os.lstat``. A trailing separator
+    or ``.`` would make the system follow the link, so it is dropped first.
     """
+    path = os.path.normpath(path)
     if os.path.islink(path):
         return 'symlink'
     isjunction = getattr(os.path, 'isjunction', None)
@@ -148,10 +167,11 @@ def _unexpected(tree: str, produced: set[str], empty_dirs: bool = False) -> list
     for dirpath, dirnames, filenames in os.walk(tree):
         if empty_dirs and dirpath != tree and not dirnames and not filenames:
             found.append(_relative(dirpath) + ' (empty directory)')
-        for name in dirnames:
+        for name in list(dirnames):
             kind = _alias(os.path.join(dirpath, name))
             if kind:
                 found.append(_relative(os.path.join(dirpath, name)) + ' (' + kind + ')')
+                dirnames.remove(name)  # os.walk would descend into a Windows junction
         for name in filenames:
             path = os.path.join(dirpath, name)
             kind = _alias(path)
@@ -178,7 +198,7 @@ def _refuse(unexpected: list[str], tree: str) -> None:
     if unexpected:
         raise SetupError(
             'REFUSED: stale build output not produced from this source tree: '
-            + ', '.join(unexpected)
+            + ', '.join(sorted(set(unexpected)))
             + '. Remove build leftovers before installing: ' + _remedy(tree))
 
 
@@ -221,12 +241,14 @@ def _symlinked_sources(build_py_command) -> list[str]:
 
 def _symlinked_parents(path: str) -> list[str]:
     """Directories above a relative ``path`` that are symlinks; a write under
-    ``path`` would land wherever they point. An absolute path, configured
-    deliberately, is taken as given."""
+    ``path`` would land wherever they point. Each directory is taken as
+    written, since ``..`` after a symlinked one leaves the link's target and
+    normalizing would hide it. An absolute path, configured deliberately, is
+    taken as given."""
     found = []
     if os.path.isabs(path):
         return found
-    parent = os.path.dirname(os.path.normpath(path))
+    parent = os.path.dirname(path)
     while parent and parent != os.path.dirname(parent):
         kind = _alias(parent)
         if kind:
@@ -344,6 +366,8 @@ def _entries(tree: str) -> tuple[set[str], set[str]]:
         inside = os.path.relpath(dirpath, tree)
         dirs.update(os.path.normpath(os.path.join(inside, name)) for name in dirnames)
         files.update(os.path.normpath(os.path.join(inside, name)) for name in filenames)
+        # Reported as entries; os.walk would descend into a Windows junction.
+        dirnames[:] = [name for name in dirnames if not _alias(os.path.join(dirpath, name))]
     return dirs, files
 
 
@@ -392,19 +416,47 @@ def _refuse_dist_info(mismatches: list[str]) -> None:
             + '. Regenerate it from this checkout (setup.py dist_info) or build without --dist-info-dir.')
 
 
-def _guard_staging(command, staging_dir: str) -> None:
-    """Refuse any leftover under the shared bdist base (``build/bdist.<platform>``),
-    where the wheel, egg, dumb and rpm staging trees live, and under the
-    command's own staging directory when it was configured elsewhere."""
-    base = command.get_finalized_command('bdist').bdist_base
-    for tree in (base, staging_dir):
-        _refuse(sorted(_symlinked_parents(tree) + _unexpected(tree, set(), empty_dirs=True)), tree)
+def _guard_dist_info(dist_info_dir: str | None) -> None:
+    """A given ``--dist-info-dir`` is copied into the wheel as is, so it must
+    match, in names and bytes, what this build's own conversion produces; a
+    separate run regenerates that for the comparison."""
+    if dist_info_dir:
+        with tempfile.TemporaryDirectory() as workdir:
+            _refuse_dist_info(_dist_info_mismatches(os.fspath(dist_info_dir), _fresh_dist_info(workdir)))
+
+
+# Files of staging trees that an earlier command of this same run kept
+# (``bdist`` keeps the tree between two formats of one command): this run's
+# own output, not leftovers.
+_KEPT_STAGING: set[str] = set()
+
+
+def _guard_staging(staging_dir: str, rewritten: frozenset[str] = frozenset(), empty_dirs: bool = True) -> None:
+    """Refuse any leftover in a command's own staging tree, which the command
+    archives (or, for rpm, hands to rpmbuild) as found. A sibling command's
+    tree under the same ``build/bdist.<platform>`` is never read. Files that an
+    earlier command of this same run kept, and ``rewritten`` files that the
+    command overwrites on every run, are admitted."""
+    _refuse(sorted(_symlinked_parents(staging_dir)
+                   + _unexpected(staging_dir, _KEPT_STAGING | rewritten, empty_dirs=empty_dirs)), staging_dir)
+
+
+def _remember_kept(command, staging_dir: str) -> None:
+    """After a command that keeps its staging tree, admit that tree's files to
+    later commands of this run."""
+    if getattr(command, 'keep_temp', False) and os.path.isdir(staging_dir):
+        for dirpath, _dirnames, filenames in os.walk(staging_dir):
+            _KEPT_STAGING.update(_canonical(os.path.join(dirpath, name)) for name in filenames)
 
 
 class build_py(_build_py):
     """Refuse build output that this source tree did not produce."""
 
     def run(self) -> None:
+        if self.editable_mode:
+            # An editable build copies nothing (the install runs from src/),
+            # so there is no build tree to guard.
+            return super().run()
         _guard_build_lib(self)
         # Rewrite every output: a leftover at a produced path that is newer than
         # its source would otherwise be kept as "up to date" and shipped.
@@ -419,18 +471,24 @@ class bdist_wheel(_bdist_wheel):
     """Refuse a leftover staging tree, and re-check build/lib even with --skip-build."""
 
     def run(self) -> None:
-        _guard_staging(self, self.bdist_dir)
-        if self.dist_info_dir:
-            # Pre-generated metadata is copied into the wheel as is, so it must
-            # match, in names and bytes, what this build's own conversion
-            # produces; a separate run regenerates that for comparison.
-            with tempfile.TemporaryDirectory() as workdir:
-                _refuse_dist_info(_dist_info_mismatches(self.dist_info_dir, _fresh_dist_info(workdir)))
+        _guard_staging(self.bdist_dir)
+        _guard_dist_info(self.dist_info_dir)
         if self.skip_build:
             _guard_skipped_build(self)
         else:
             # The build rewrites build/lib next and checks it again itself.
             _guard_build_lib(self.get_finalized_command('build_py'))
+        super().run()
+        _remember_kept(self, self.bdist_dir)
+
+
+class editable_wheel(_editable_wheel):
+    """Validate a pre-generated dist-info; pip's editable flow passes the one it generated."""
+
+    def run(self) -> None:
+        # Before the run: it writes WHEEL into the given directory, then copies
+        # the directory into the wheel as is.
+        _guard_dist_info(self.dist_info_dir)
         super().run()
 
 
@@ -438,34 +496,48 @@ class bdist_egg(_bdist_egg):
     """Refuse a leftover egg staging tree; the legacy archive is assembled from whatever it holds."""
 
     def run(self) -> None:
-        _guard_staging(self, self.bdist_dir)
+        _guard_staging(self.bdist_dir)
         super().run()
+        _remember_kept(self, self.bdist_dir)
 
 
 class bdist_dumb(_bdist_dumb):
     """Refuse a leftover dumb staging tree; the archive is the pseudo-installation tree as found."""
 
     def run(self) -> None:
-        _guard_staging(self, self.bdist_dir)
+        _guard_staging(self.bdist_dir)
         super().run()
+        _remember_kept(self, self.bdist_dir)
 
 
 class bdist_rpm(_bdist_rpm):
-    """Refuse a leftover rpm build tree under the bdist base before rpmbuild sees it."""
+    """Refuse a leftover in the rpm build tree before rpmbuild sees it."""
 
     def run(self) -> None:
-        _guard_staging(self, self.rpm_base)
+        # Every run rewrites the spec and the source archive that rpmbuild
+        # reads, and a successful run leaves both behind with empty
+        # directories; the copy is forced, so an existing archive newer than
+        # the new one is not kept. Anything else in the tree is a leftover.
+        self.force = True
+        archive = self.distribution.get_fullname() + ('.tar.bz2' if self.use_bzip2 else '.tar.gz')
+        rewritten = frozenset({
+            _canonical(os.path.join(self.rpm_base, 'SPECS', self.distribution.get_name() + '.spec')),
+            _canonical(os.path.join(self.rpm_base, 'SOURCES', archive))})
+        _guard_staging(self.rpm_base, rewritten, empty_dirs=False)
         super().run()
+        _remember_kept(self, self.rpm_base)
 
 
 class install_lib(_install_lib):
     """Validate the directory this command copies from (--build-dir, by default build/lib)."""
 
     def install(self):
-        # Runs after build(): bytecode a build in this run wrote is admitted;
-        # under --skip-build nothing recompiles it. A dry run copies nothing.
-        _guard_build_lib(self.get_finalized_command('build_py'), compare_bytes=not self.dry_run,
-                         recompiles=not self.skip_build, tree=self.build_dir)
+        # Runs after build(): bytecode a build in this run wrote is admitted,
+        # but only in build/lib, the tree that build recompiled; under
+        # --skip-build nothing recompiles it. A dry run copies nothing.
+        build_py = self.get_finalized_command('build_py')
+        recompiled = not self.skip_build and _canonical(self.build_dir) == _canonical(build_py.build_lib)
+        _guard_build_lib(build_py, compare_bytes=not self.dry_run, recompiles=recompiled, tree=self.build_dir)
         return super().install()
 
 
@@ -486,6 +558,10 @@ class egg_info(_egg_info):
         mm.manifest = manifest_filename
         mm.run()
         self.filelist = mm.filelist
+        # The metadata conversion reads README.md into METADATA and copies the
+        # license files into the wheel, following any symlink, so every file
+        # the manifest names must be a file of this tree, as for an sdist.
+        _refuse_sources(_symlinked_paths(self.filelist.files))
 
     def run(self) -> None:
         written = {entry.name for entry in _metadata.entry_points(group='egg_info.writers')}
@@ -513,6 +589,6 @@ class sdist(_sdist):
         super().make_release_tree(base_dir, files)
 
 
-setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'bdist_egg': bdist_egg,
-                'bdist_dumb': bdist_dumb, 'bdist_rpm': bdist_rpm, 'install_lib': install_lib,
-                'egg_info': egg_info, 'sdist': sdist})
+setup(cmdclass={'build_py': build_py, 'bdist_wheel': bdist_wheel, 'editable_wheel': editable_wheel,
+                'bdist_egg': bdist_egg, 'bdist_dumb': bdist_dumb, 'bdist_rpm': bdist_rpm,
+                'install_lib': install_lib, 'egg_info': egg_info, 'sdist': sdist})

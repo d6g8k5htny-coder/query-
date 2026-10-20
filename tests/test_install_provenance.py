@@ -284,6 +284,17 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn(empty.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
         self.assertIn(staged.parent.relative_to(self.checkout).as_posix() + ' (empty directory)', output)
         self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+        # A staging directory configured elsewhere is the tree that is archived,
+        # so it is checked the same way and the refusal names that directory.
+        leftover = self.checkout / 'stage' / PACKAGE / 'stage_stale.py'
+        leftover.parent.mkdir(parents=True)
+        leftover.write_text('STAGE_STALE = True\n', encoding='utf-8')
+        result = direct_setup(self.checkout, 'bdist_wheel', '--bdist-dir', 'stage', '--dist-dir', str(self.wheels))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a leftover in a configured staging directory must be refused')
+        self.assertIn('stage/' + PACKAGE + '/stage_stale.py', output)
+        self.assertIn('under stage', output)
+        self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
 
     def test_stale_bdist_egg_staging_tree_is_refused(self):
         # The legacy egg is assembled from build/bdist.<platform>/egg, which a
@@ -309,10 +320,10 @@ class InstallProvenance(unittest.TestCase):
         self.assertEqual(wheel_package_files(eggs[0]), tracked_source_files())
 
     def test_stale_bdist_dumb_and_rpm_staging_trees_are_refused(self):
-        # Every bdist command stages under build/bdist.<platform>; the dumb
-        # archive is that pseudo-installation tree as found, and rpmbuild works
-        # from the rpm tree, so a leftover under the shared base is refused by
-        # each of them before anything is assembled.
+        # Each bdist command stages in its own tree under build/bdist.<platform>;
+        # the dumb archive is that pseudo-installation tree as found, and
+        # rpmbuild works from the rpm tree, so a leftover there is refused
+        # before anything is assembled. No command reads a sibling's tree.
         base = wheel_staging_dir(self.checkout).parent
         staged = base / 'dumb' / 'private' / 'stale.txt'
         staged.parent.mkdir(parents=True)
@@ -325,20 +336,45 @@ class InstallProvenance(unittest.TestCase):
         self.assertIn(staged.relative_to(self.checkout).as_posix(), output)
         self.assertEqual(sorted(dist.glob('*')) if dist.exists() else [], [])
         self.assertTrue(staged.is_file(), 'the leftover is reported, not deleted')
-        # The same leftover blocks the other bdist commands, which share the base.
+        # The wheel stages in its own tree and never archives the dumb one.
+        result = self.wheel()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rpm_staged = base / 'rpm' / 'BUILD' / 'stale.txt'
+        rpm_staged.parent.mkdir(parents=True)
+        rpm_staged.write_text('STALE\n', encoding='utf-8')
         result = direct_setup(self.checkout, 'bdist_rpm', '--dist-dir', str(dist))
         output = result.stdout + result.stderr
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn(staged.relative_to(self.checkout).as_posix(), output)
+        self.assertIn(rpm_staged.relative_to(self.checkout).as_posix(), output)
         self.assertNotIn('rpmbuild', output, 'the refusal must come before rpmbuild is involved')
-        result = self.wheel()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(staged.relative_to(self.checkout).as_posix(), result.stdout + result.stderr)
         # A clean dumb build is not refused.
         shutil.rmtree(base)
         result = direct_setup(self.checkout, 'bdist_dumb', '--format', 'zip', '--dist-dir', str(dist))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(len(sorted(dist.glob('*.zip'))), 1)
+
+    def test_what_a_successful_bdist_rpm_leaves_is_not_a_leftover(self):
+        # distutils' bdist_rpm keeps its rpm tree: the spec and the source
+        # archive it rewrites on every run, and empty directories. Neither a
+        # later wheel nor the next bdist_rpm may refuse those; anything else
+        # in the tree is still a leftover.
+        rpm = wheel_staging_dir(self.checkout).parent / 'rpm'
+        for name in ('BUILD', 'RPMS/noarch', 'SRPMS', 'SPECS', 'SOURCES'):
+            (rpm / name).mkdir(parents=True)
+        (rpm / 'SPECS' / 'universal-law-query.spec').write_text('%define name universal-law-query\n', encoding='utf-8')
+        (rpm / 'SOURCES' / 'universal_law_query-0.1.0.tar.gz').write_bytes(b'an earlier source archive')
+        result = self.wheel()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        spec_dir = self.base / 'spec'
+        result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--dist-dir', str(spec_dir))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(sorted(path.name for path in spec_dir.iterdir()), ['universal-law-query.spec'])
+        stale = rpm / 'SOURCES' / 'private.txt'
+        stale.write_text('PRIVATE\n', encoding='utf-8')
+        result = direct_setup(self.checkout, 'bdist_rpm', '--spec-only', '--dist-dir', str(spec_dir))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'another file in the rpm tree is a leftover')
+        self.assertIn(stale.relative_to(self.checkout).as_posix(), output)
 
     def test_windows_junctions_are_treated_as_symlinks(self):
         # A Windows junction is not reported by os.path.islink; Python 3.12+
@@ -436,6 +472,29 @@ class InstallProvenance(unittest.TestCase):
         wheel_file.write_text('Wheel-Version: 1.0\n', encoding='utf-8')
         refused('a WHEEL file', wheel_file, " (not in this build's metadata)")
         wheel_file.unlink()
+        # Under licenses/ only the declared license files belong, and no other
+        # directory belongs anywhere.
+        stray_license = dist_info / 'licenses' / 'private.txt'
+        stray_license.write_text('private\n', encoding='utf-8')
+        refused('an undeclared file under licenses/', stray_license, " (not in this build's metadata)")
+        stray_license.unlink()
+        extra_dir = dist_info / 'extra'
+        extra_dir.mkdir()
+        refused('an extra directory', extra_dir, " (not in this build's metadata)")
+        extra_dir.rmdir()
+        # A link is refused even to identical bytes: the copy would follow it,
+        # or the bytes are shared with another path.
+        outside = self.base / 'outside_top_level.txt'
+        outside.write_bytes(original[top_level])
+        top_level.unlink()
+        for kind, make in (('symlink', os.symlink), ('hard link', os.link)):
+            try:
+                make(outside, top_level)
+            except (OSError, NotImplementedError):
+                continue  # not available on this filesystem
+            refused('a ' + kind + 'ed entry', top_level, ' (' + kind + ')')
+            top_level.unlink()
+        top_level.write_bytes(original[top_level])
         # The directory as generated is accepted, and the wheel carries exactly it.
         result = direct_setup(self.checkout, 'bdist_wheel', '--dist-info-dir', str(dist_info), '--dist-dir', str(dist))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -813,6 +872,13 @@ class InstallProvenance(unittest.TestCase):
     def test_dry_run_build_is_not_refused_for_writing_nothing(self):
         # ``--dry-run`` writes nothing by design, so the post-run comparison
         # has nothing to compare and is skipped; the leftover check still runs.
+        probe = subprocess.run(
+            [sys.executable, '-c', 'from setuptools.dist import Distribution; '
+             "print('dry-run' in [option[0] for option in Distribution.global_options])"],
+            capture_output=True, text=True, timeout=PIP_TIMEOUT)
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        if probe.stdout.strip() != 'True':
+            self.skipTest('this setuptools has no global --dry-run (removed in setuptools 81)')
         result = direct_setup(self.checkout, '--dry-run', 'build_py')
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 0, output)
@@ -923,6 +989,135 @@ class InstallProvenance(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, 'the direct build must refuse the same link')
         self.assertIn('build (symlink)', output)
         self.assertEqual(sorted(outside.iterdir()), [])
+
+    def test_symlinked_license_or_readme_is_refused_for_wheels(self):
+        # The wheel's metadata embeds README.md as the long description and
+        # copies LICENSE under licenses/, so a symlink at either would ship its
+        # target; every file the manifest names is checked, as for an sdist.
+        private = self.base / 'private.txt'
+        private.write_text('PRIVATE\n', encoding='utf-8')
+        for name in ('LICENSE', 'README.md'):
+            with self.subTest(name=name):
+                path = self.checkout / name
+                original = path.read_bytes()
+                path.unlink()
+                try:
+                    os.symlink(private, path)
+                except (OSError, NotImplementedError) as error:
+                    path.write_bytes(original)
+                    self.skipTest(f'symlinks are not available here: {error}')
+                result = self.wheel()
+                output = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, 'a symlinked ' + name + ' must be refused')
+                self.assertIn('REFUSED: symlinked source', output)
+                self.assertIn(name + ' (symlink)', output)
+                self.assertEqual(sorted(self.wheels.glob('*.whl')), [])
+                path.unlink()
+                path.write_bytes(original)
+        result = self.wheel()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_trailing_separator_or_parent_step_does_not_hide_a_symlink(self):
+        # ``bl/`` and ``bl/.`` name whatever ``bl`` points at, and ``x/..``
+        # leaves the target of a symlinked ``x``; the check must see the link
+        # itself in each spelling, as it does for the plain name.
+        outside = self.base / 'outside_lib'
+        victim = outside / PACKAGE / '__init__.py'
+        victim.parent.mkdir(parents=True)
+        victim.write_text('VICTIM = True\n', encoding='utf-8')
+        deep = self.base / 'deep' / 'inner'
+        deep.mkdir(parents=True)
+        try:
+            os.symlink(outside, self.checkout / 'bl', target_is_directory=True)
+            os.symlink(deep, self.checkout / 'x', target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f'symlinks are not available here: {error}')
+        for spelling, link in (('bl', 'bl'), ('bl/', 'bl'), ('bl/.', 'bl'), ('x/../escaped', 'x')):
+            with self.subTest(spelling=spelling):
+                result = direct_setup(self.checkout, 'build_py', '--build-lib', spelling)
+                output = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, spelling + ' must be refused')
+                self.assertIn(link + ' (symlink)', output)
+                self.assertEqual(victim.read_text(encoding='utf-8'), 'VICTIM = True\n')
+                self.assertFalse((self.base / 'deep' / 'escaped').exists(), 'nothing may be written through x')
+        result = direct_setup(self.checkout, 'bdist_wheel', '--bdist-dir', 'bl/', '--dist-dir', str(self.wheels))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a staging directory named with a trailing separator is checked too')
+        self.assertIn('bl (symlink)', output)
+        self.assertEqual(sorted(path.name for path in outside.iterdir()), [PACKAGE])
+
+    def test_install_lib_admits_bytecode_only_in_the_tree_this_run_recompiled(self):
+        # ``build_py --compile`` rewrites bytecode under build/lib only; a cache
+        # file in another --build-dir was compiled by nobody in this run, and
+        # install_lib keeps a destination cache file that is newer than its source.
+        built = direct_setup(self.checkout, 'build_py')
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        elsewhere = self.checkout / 'elsewhere'
+        shutil.copytree(self.checkout / 'build' / 'lib', elsewhere)
+        cache = Path(importlib.util.cache_from_source(str(elsewhere / PACKAGE / '__init__.py'), optimization=''))
+        cache.parent.mkdir(exist_ok=True)
+        cache.write_bytes(b'not bytecode this run compiled')
+        result = direct_build_py(self.checkout, '--compile', 'install_lib', '--build-dir', 'elsewhere',
+                                 '--install-dir', str(self.target))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'bytecode in a tree this run did not recompile must be refused')
+        self.assertIn('REFUSED: stale build output', output)
+        self.assertIn(os.path.relpath(cache, self.checkout).replace(os.sep, '/'), output)
+        self.assertEqual(installed_files(self.target), [])
+        # From build/lib, which the same run has just recompiled, it is accepted.
+        result = direct_build_py(self.checkout, '--compile', 'install_lib', '--build-dir', 'build/lib',
+                                 '--install-dir', str(self.target))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(installed_files(self.target), tracked_source_files())
+
+    def test_editable_wheel_validates_a_pre_generated_dist_info_and_builds_quietly(self):
+        # pip's editable flow passes the metadata it generated to
+        # ``editable_wheel --dist-info-dir``, which copies it into the wheel as
+        # is. editable_wheel runs build_py in editable mode, where nothing is
+        # copied, so there is no build/lib to guard and nothing is reported.
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'editable_wheel', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertNotIn('REFUSED', output)
+        self.assertEqual(len(sorted(dist.glob('*.whl'))), 1)
+        meta = self.base / 'meta'
+        meta.mkdir()
+        generated = direct_setup(self.checkout, 'dist_info', '--output-dir', str(meta))
+        self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+        dist_info = sorted(meta.glob('*.dist-info'))[0]
+        planted = dist_info / 'private.txt'
+        planted.write_text('private\n', encoding='utf-8')
+        editable_dist = self.base / 'editable_dist'
+        result = direct_setup(self.checkout, 'editable_wheel', '--dist-info-dir', str(dist_info),
+                              '--dist-dir', str(editable_dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a pre-generated dist-info with an extra file must be refused')
+        self.assertIn('REFUSED: pre-generated metadata', output)
+        self.assertIn(os.path.relpath(planted, self.checkout).replace(os.sep, '/')
+                      + " (not in this build's metadata)", output)
+        self.assertEqual(sorted(editable_dist.glob('*.whl')) if editable_dist.exists() else [], [])
+        planted.unlink()
+        result = direct_setup(self.checkout, 'editable_wheel', '--dist-info-dir', str(dist_info),
+                              '--dist-dir', str(editable_dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(sorted(editable_dist.glob('*.whl'))), 1)
+
+    def test_bdist_with_several_dumb_formats_accepts_its_own_kept_staging_tree(self):
+        # ``bdist`` keeps the staging tree between two formats of the same
+        # command; that tree is this run's own output, not a leftover. A tree
+        # kept by an earlier invocation is still refused.
+        dist = self.base / 'dist'
+        result = direct_setup(self.checkout, 'bdist', '--formats=zip,gztar', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertEqual(sorted(path.suffix for path in dist.iterdir()), ['.gz', '.zip'])
+        result = direct_setup(self.checkout, 'bdist_dumb', '--keep-temp', '--dist-dir', str(dist))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = direct_setup(self.checkout, 'bdist_dumb', '--dist-dir', str(dist))
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, 'a tree kept by an earlier invocation is a leftover')
+        self.assertIn('REFUSED: stale build output', output)
 
     @unittest.skipUnless(os.environ.get('QUERY_INSTALL_ISOLATED') == '1',
                          'isolated build downloads setuptools; set QUERY_INSTALL_ISOLATED=1 to run')
