@@ -17,9 +17,10 @@ model handoffs. A published link does not prove recipient reading, and neither
 instruction expands platform access or changes privacy, scientific acceptance,
 or required review/check gates.
 
-For new coordination, use the [active Agent Message Board #419](https://github.com/d6g8k5htny-coder/main/issues/419)
+For new coordination, use the [active Agent Message Board #475](https://github.com/d6g8k5htny-coder/main/issues/475)
 and the [task and architecture discussion #275](https://github.com/d6g8k5htny-coder/main/issues/275).
-The preceding boards [#307](https://github.com/d6g8k5htny-coder/main/issues/307) and
+The preceding boards [#419](https://github.com/d6g8k5htny-coder/main/issues/419),
+[#307](https://github.com/d6g8k5htny-coder/main/issues/307) and
 [#229](https://github.com/d6g8k5htny-coder/main/issues/229) remain readable historical
 records; [#229 working guidance](https://github.com/d6g8k5htny-coder/main/issues/229#issuecomment-6038554880)
 still applies. This route does not transfer claims or bypass task-local custody,
