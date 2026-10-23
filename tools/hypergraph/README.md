@@ -8,7 +8,9 @@ Vertex keys are `<repo>:<type>:<id>`. Absent/private repos are skipped with a me
 ```
 pip install -r tools/hypergraph/requirements.txt
 pytest tools/hypergraph
-python -m tools.hypergraph.math_hypergraph validate | gaps | repos
+python -m tools.hypergraph.math_hypergraph validate
+python -m tools.hypergraph.math_hypergraph gaps
+python -m tools.hypergraph.math_hypergraph repos
 python -m tools.hypergraph.math_hypergraph export /tmp/hg-bundle --repos all --png
 # optional: git clone --depth 1 https://github.com/d6g8k5htny-coder/<repo> external/<repo>
 ```

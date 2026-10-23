@@ -50,3 +50,35 @@ def test_config_paths_relative():
         for k in ("checkout", "ledger", "graph", "report"):
             if k in spec:
                 assert not Path(spec[k]).is_absolute() and ".." not in Path(spec[k]).parts
+
+
+def test_specific_patterns_beat_review_catchall(tmp_path):
+    for rel in ("reviews/r1/check.py", "reviews/r1/L.lean", "reviews/r1/notes.md"):
+        p = tmp_path / rel; p.parent.mkdir(parents=True, exist_ok=True); p.write_text("x")
+    import json
+    cfg = json.loads((HERE / "inputs.json").read_text())["repos"]["Math-"]
+    hg = mh.HypergraphDB()
+    mh.add_artifacts(hg, "Math-", tmp_path, cfg)
+    roles = {k: r for e in hg.all_e for k, r in hg.e(e)["roles"].items()}
+    assert roles["Math-:impl:reviews/r1/check.py"] == "impl"
+    assert roles["Math-:formal:reviews/r1/L.lean"] == "formal"
+    assert roles["Math-:src:reviews/r1/notes.md"] == "review"
+
+
+def test_resolve_paths():
+    assert mh._resolve("Math-", "u/x", "main:architecture/a.json") == ("main", "architecture/a.json")
+    assert mh._resolve("Math-", "u/x", "replay.py") == ("Math-", "u/x/replay.py")
+    assert mh._resolve("Math-", "u/x", "u/x/C7/P.md") == ("Math-", "u/x/C7/P.md")
+    cfg = {"repos": {"Math-": {"root_dirs": ["frontiers"]}}}
+    assert mh._resolve("Math-", "u/x", "frontiers/y/P.md", cfg) == ("Math-", "frontiers/y/P.md")
+    assert mh._resolve("Math-", "u/x", "C7/P.md", cfg) == ("Math-", "u/x/C7/P.md")
+    assert mh._resolve("nochk", "u/x", "C7/P.md") == ("nochk", "u/x/C7/P.md")
+
+
+def test_export_manifest_includes_readme(tmp_path):
+    hg = mh.HypergraphDB(); hg.add_v("m:unit:a", {"type": "unit"})
+    mh.export(hg, {}, tmp_path, {}, [], [])
+    import json
+    man = json.loads((tmp_path / "MANIFEST.json").read_text())
+    assert "README.md" in man["files"]
+    assert man["files"]["README.md"] == mh._sha(tmp_path / "README.md")

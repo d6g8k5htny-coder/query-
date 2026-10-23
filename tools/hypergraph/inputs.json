@@ -7,6 +7,7 @@
  "repos": {
   "main": {
    "github": "d6g8k5htny-coder/main",
+   "root_dirs": [".github", "architecture", "audits", "data", "docs", "experiments", "formal", "governance", "history", "incoming", "interface", "records", "reviews", "tests", "tools"],
    "checkout": "external/main",
    "ledger": "external/main/data/hypergraph/math_coverage_ledger_20261023.md",
    "graph": "external/main/docs/site/dependency-source/GRAPH.json",
@@ -14,9 +15,17 @@
   },
   "Math-": {
    "github": "d6g8k5htny-coder/Math-",
+   "root_dirs": [".github", "certificates", "claims", "coefficients", "companions", "docs", "formal", "frontiers", "imports", "incoming", "repairs", "reviews", "specifications", "tests", "tools"],
    "checkout": "external/Math-",
    "unit_depth": 2,
+   "artifacts_order": "first matching role wins: specific formal/impl globs precede the reviews/* catch-all",
    "artifacts": {
+    "formal": [
+     "*.lean"
+    ],
+    "impl": [
+     "*.py"
+    ],
     "review": [
      "*REVIEW*.md",
      "reviews/*"
@@ -27,17 +36,12 @@
      "*lemma*.md",
      "*.tex",
      "PROOF_INDEX.md"
-    ],
-    "formal": [
-     "*.lean"
-    ],
-    "impl": [
-     "*.py"
     ]
    }
   },
   "query-": {
    "github": "d6g8k5htny-coder/query-",
+   "root_dirs": [".github", "docs", "portable", "scripts", "src", "tests"],
    "checkout": ".",
    "unit_depth": 1,
    "artifacts": {

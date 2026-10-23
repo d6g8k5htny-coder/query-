@@ -83,7 +83,8 @@ def build(ledger=LEDGER, graph=GRAPH, report=REPORT, config=None, repos=None, hg
     hg = HypergraphDB() if hg is None else hg
     G, skipped = {}, []
     if ledger is not None and Path(graph).exists():
-        G = _build_ledger(hg, ledger, graph, report, home)
+        G = _build_ledger(hg, ledger, graph, report, home,
+                          config if config is not None else load_config())
     for name in (repos or []):
         spec = (config or {}).get("repos", {}).get(name)
         if spec is None:
@@ -98,7 +99,25 @@ def build(ledger=LEDGER, graph=GRAPH, report=REPORT, config=None, repos=None, hg
     return hg, G, skipped
 
 
-def _build_ledger(hg, ledger, graph, report, home):
+def _resolve(repo, unit, path, config=None):
+    """Resolve a ledger path to (repo, repo-root-relative path), deterministically (no filesystem).
+    `<repo>:<path>` naming a configured repo is honored as-is. A path that starts with the unit
+    directory, or whose first component is one of the repo's configured `root_dirs`, is already
+    repo-root-relative; anything else (bare basenames, nested `C7/PROOF.md`) is unit-relative."""
+    repos = (config or {}).get("repos", {})
+    names = set(repos) | {"main", "Math-", "query-"}
+    m = re.match(r"^([A-Za-z0-9_.-]+):(.+)$", path)
+    if m and m.group(1) in names:
+        return m.group(1), m.group(2)
+    unit = unit.strip("/")
+    if path == unit or path.startswith(unit + "/"):
+        return repo, path
+    if "/" in path and path.split("/", 1)[0] in repos.get(repo, {}).get("root_dirs", ()):
+        return repo, path
+    return repo, f"{unit}/{path}"
+
+
+def _build_ledger(hg, ledger, graph, report, home, config=None):
     G = json.loads(Path(graph).read_text())["nodes"]
     R = json.loads(Path(report).read_text())
     bound_nodes = {b["node_id"] for b in R["bound"]}
@@ -115,19 +134,21 @@ def _build_ledger(hg, ledger, graph, report, home):
         rp = r["repo"]
         u = V(f"{rp}:unit:{r['unit']}", "unit", row=r["n"], status=r["status"], bound=r["bound"] == "Y")
         members = {u: "unit"}
-        members[V(f"{home}:record:" + r["rec"], "record")] = "review"
+        members[V(f"{home}:record:" + r["rec"], "record")] = "record"
         members[V(f"{home}:lane:" + r["lane"], "lane")] = "lane"
         srcs = _split(r["src"])
         for s in srcs:
             role = "review" if re.search(r"REVIEW", s, re.I) else "source"
-            members[V(f"{rp}:src:" + (s if "/" in s else r["unit"] + "/" + s), "source_file")] = role
+            srp, sp = _resolve(rp, r["unit"], s, config)
+            members[V(f"{srp}:src:{sp}", "source_file")] = role
         imps = _split(r["impl"])
         placeholders = []
         for s in imps:
             if s.startswith("(") or s.endswith(")") or PLACEHOLDER.search(s):
                 placeholders.append(s)  # text, not an artifact
                 continue
-            members[V(f"{rp}:impl:" + s, "implementation")] = "impl"
+            irp, ip = _resolve(rp, r["unit"], s, config)
+            members[V(f"{irp}:impl:{ip}", "implementation")] = "impl"
         for s in _split(r["node"], ","):
             members[V(f"{home}:node:" + s, "graph_node")] = "node"
         hg.add_e(tuple(members), {
@@ -321,7 +342,7 @@ def _make(cfg, repos):
     home = cfg.get("home", "main")
     spec = cfg.get("repos", {}).get(home, {})
     ledger = spec.get("ledger")
-    if ledger and (ROOT / ledger).exists():
+    if ledger and home in repos and (ROOT / ledger).exists():
         return build(ROOT / ledger, ROOT / spec["graph"], ROOT / spec["report"], cfg,
                      [r for r in repos if r != home or spec.get("artifacts")], home=home)
     return build(None, None, None, cfg, repos, home=home)
@@ -339,14 +360,15 @@ def check(cfg, repos, ref=DATA):
 def export(hg, G, out, cfg, repos, skipped, png=False):
     out = Path(out); out.mkdir(parents=True, exist_ok=True)
     res = write_outputs(hg, G, out, png)
-    manifest = {"note": "organization only; credit 0, OBL OPEN, no flags", "format": "math-hypergraph/1",
-                "repos_included": [r for r in repos if r not in skipped], "repos_skipped": skipped,
-                "hyperdb": "hypergraph-db==0.4.0",
-                "files": {f.name: _sha(f) for f in sorted(out.iterdir()) if f.name != "MANIFEST.json"}}
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
+    included = [r for r in repos if r not in skipped]
     (out / "README.md").write_text(EXPORT_README.format(
-        repos=", ".join(manifest["repos_included"]) or "(none)", skipped=", ".join(skipped) or "none",
+        repos=", ".join(included) or "(none)", skipped=", ".join(skipped) or "none",
         v=hg.num_v, e=hg.num_e))
+    manifest = {"note": "organization only; credit 0, OBL OPEN, no flags", "format": "math-hypergraph/1",
+                "repos_included": included, "repos_skipped": skipped,
+                "hyperdb": "hypergraph-db==0.4.0",
+                "files": {f.name: _sha(f) for f in sorted(out.iterdir()) if f.is_file() and f.name != "MANIFEST.json"}}
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")  # written last
     return res
 
 
