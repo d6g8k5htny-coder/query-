@@ -1,0 +1,65 @@
+{
+ "note": "Inputs for tools/hypergraph. Paths are relative to this repo's root. Repos whose checkout is absent are skipped with a message. Organization only: credit 0, OBL OPEN. Companion copy in query-: this repo is checkout '.', others are optional read-only checkouts under external/.",
+ "home": "main",
+ "default_repos": [
+  "query-"
+ ],
+ "repos": {
+  "main": {
+   "github": "d6g8k5htny-coder/main",
+   "checkout": "external/main",
+   "ledger": "external/main/data/hypergraph/math_coverage_ledger_20261023.md",
+   "graph": "external/main/docs/site/dependency-source/GRAPH.json",
+   "report": "external/main/data/hypergraph/graph_binding_report_20261023.json"
+  },
+  "Math-": {
+   "github": "d6g8k5htny-coder/Math-",
+   "checkout": "external/Math-",
+   "unit_depth": 2,
+   "artifacts": {
+    "review": [
+     "*REVIEW*.md",
+     "reviews/*"
+    ],
+    "source": [
+     "*PROOF*.md",
+     "*LEMMA*.md",
+     "*lemma*.md",
+     "*.tex",
+     "PROOF_INDEX.md"
+    ],
+    "formal": [
+     "*.lean"
+    ],
+    "impl": [
+     "*.py"
+    ]
+   }
+  },
+  "query-": {
+   "github": "d6g8k5htny-coder/query-",
+   "checkout": ".",
+   "unit_depth": 1,
+   "artifacts": {
+    "test": [
+     "tests/*.py",
+     "test_*.py"
+    ],
+    "spec": [
+     "portable/*.json",
+     "portable/history/*.json"
+    ],
+    "source": [
+     "portable/*.md",
+     "docs/*.md"
+    ],
+    "impl": [
+     "src/*.py",
+     "src/*/*.py",
+     "scripts/*.py",
+     "*.py"
+    ]
+   }
+  }
+ }
+}
