@@ -293,4 +293,4 @@ Standard setuptools source distributions are a separate producer: this custom
 allowlist does not define their membership or establish an offline-install or
 installed-console result.
 
-Cross-repository integration controls remain in `trial`. The curated public artifact routing authority remains `meta-framework/registry.json`.
+The archived [`trial`](https://github.com/d6g8k5htny-coder/trial) repository retains historical cross-repository engineering tests. For current coordination and integration, follow [main's agent entry](https://github.com/d6g8k5htny-coder/main/blob/main/AGENTS.md) and [current workflow](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-WORKFLOW-20260930.md). The curated public artifact routing authority remains `meta-framework/registry.json`.
