@@ -22,5 +22,9 @@ Issues = "https://github.com/d6g8k5htny-coder/query-/issues"
 [project.scripts]
 universal-law-query = "universal_law_query.cli:main"
 
+[tool.setuptools]
+# The package ships no package data; a stale egg-info manifest must not add any.
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["src"]

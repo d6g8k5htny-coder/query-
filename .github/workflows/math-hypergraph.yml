@@ -1,0 +1,70 @@
+name: Math hypergraph (organization only)
+'on':
+  pull_request:
+    paths:
+      - 'tools/hypergraph/**'
+      - '.github/workflows/math-hypergraph.yml'
+      - 'portable/**'
+      - 'src/**'
+      - 'docs/**'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/hypergraph/**'
+      - '.github/workflows/math-hypergraph.yml'
+      - 'portable/**'
+      - 'src/**'
+      - 'docs/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hypergraph:
+    name: math-hypergraph
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # Read-only checkouts of the other public repos (no secrets). If one is private
+      # or unavailable the step is skipped and the builder prints "skip <repo>".
+      - name: Checkout main (public, read-only)
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: d6g8k5htny-coder/main
+          path: external/main
+          persist-credentials: false
+      - name: Checkout Math- (public, read-only)
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: d6g8k5htny-coder/Math-
+          path: external/Math-
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/hypergraph/requirements.txt
+      - name: Install pinned requirements
+        run: python -m pip install -r tools/hypergraph/requirements.txt
+      - name: Tests
+        run: python -m pytest -q -p no:cacheprovider tools/hypergraph
+      - name: validate (query- artifacts)
+        run: python -m tools.hypergraph.math_hypergraph validate
+      - name: gaps
+        run: python -m tools.hypergraph.math_hypergraph gaps
+      - name: Build all-repo bundle with PNG
+        run: |
+          set -euo pipefail
+          python -m tools.hypergraph.math_hypergraph repos
+          python -m tools.hypergraph.math_hypergraph export "$RUNNER_TEMP/hypergraph" --repos all --png
+          ls -l "$RUNNER_TEMP/hypergraph"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: math-hypergraph
+          path: ${{ runner.temp }}/hypergraph/
+          if-no-files-found: error
+          retention-days: 14

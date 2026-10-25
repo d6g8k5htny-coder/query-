@@ -46,12 +46,83 @@ Installing from the checkout, and the installation control in
 `tests/test_install_contract.py`, leave setuptools' `build/` and
 `src/universal_law_query.egg-info/` in the checkout. Both are listed in
 `.gitignore`, so `git status` stays clean, and the source dry-run builder (which
-selects tracked files only) is unaffected. They are not harmless: a file left
-in `build/lib/` (for example by an install from another commit) is installed by
-the next install even though `src/` does not contain it, and the installation
-control still passes. Remove them before installing:
-`git clean -fdX -- build src/universal_law_query.egg-info`. A fresh checkout,
-as in CI, has neither directory.
+selects tracked files only) is unaffected. They are not harmless: setuptools
+reuses `build/lib/` without removing anything, so a file left there (for
+example by an install from another commit) would otherwise be installed by the
+next install even though `src/` does not contain it, and a stale `SOURCES.txt`
+in the egg-info directory would otherwise add package data; the installation
+control above cannot see either. The checkout's `setup.py` therefore refuses to
+build when `build/lib/` holds anything this source tree did not produce
+(`REFUSED: stale build output …`, naming the files), before copying anything
+and again afterwards; every symlink under `build/lib/` is refused wherever it
+points, because the wheel staging step would follow it, and so is a symlink
+among the package sources in `src/`, because the copy would ship its target.
+Bytecode under `build/lib/` is accepted only from the run that compiles it
+(`build_py --compile` with bytecode writing enabled); a cache file found by a
+run that does not recompile it, such as `--skip-build` or a build under
+`python -B`, is refused. Every `bdist` command (`bdist_wheel`, `bdist_egg`,
+`bdist_dumb`, `bdist_rpm`) refuses a leftover in its own staging tree under
+`build/bdist.*/`, which it archives as found (an interrupted build leaves
+one). It does not refuse a tree that the same command kept earlier in the
+same run, as `bdist` does between two formats, because that tree is the
+command's own output; a spec-only `bdist_rpm` keeps nothing. For `bdist_rpm`,
+the spec, source archive and icon that every full run rewrites, and a
+successful run leaves behind, are not leftovers. A sibling command's tree is
+never read, and a named pipe or other special file in any tree is refused. The
+wheel and editable-wheel commands also refuse a
+pre-generated `--dist-info-dir` that differs in any name or byte from this
+build's own metadata, which a separate `setup.py dist_info` run regenerates
+for the comparison (`REFUSED: pre-generated metadata …`; a regular `WHEEL`,
+which both commands rewrite, is admitted), and the wheel
+command repeats the `build/lib/` check, so `--skip-build` cannot bypass it;
+with `--skip-build` every expected output must be present with the bytes of
+its source. The legacy `install`, `install_lib` and `bdist_egg` commands run
+the same check on the directory `install_lib` copies from (`--build-dir`),
+with or without `--skip-build`; bytecode there is accepted only in
+`build/lib/` right after the same run recompiled it. The egg-info manifest is
+regenerated from the tree and a stale `SOURCES.txt` is never read back, so it
+can add a file neither to a wheel nor to a `setup.py sdist` archive; any other
+file left in the egg-info directory is refused, because an sdist and a direct
+`bdist_wheel` would copy it into the archive, and so is a leftover sdist
+release tree (`universal_law_query-0.1.0/`), which an sdist would archive
+whole. A symlink among the files the manifest names (for example `LICENSE` or
+`README.md`, which the wheel's metadata copies or embeds) is refused whenever
+the metadata is generated, for a wheel, an sdist or an install alike. A
+symlink or hard link in or at the egg-info directory, or a symlinked `build/`,
+is refused before anything is written,
+because setuptools' metadata writers and build copies would otherwise write
+through to whatever the link points at; a directory named with a trailing `/`
+or `/.`, or reached through `..` after a symlinked directory, counts as the
+link. A hard link under `build/lib/` is refused because its bytes are shared
+with another path, so the tree is not this build's output; the build copy
+itself unlinks its destination before writing and does not write through. A
+Windows junction counts as a symlink throughout. A `--dry-run` build (an option
+setuptools 81 removed) writes nothing and is not refused for that; leftovers
+are still refused. An editable install copies nothing and runs from `src/`;
+the editable-wheel command still refuses a symlinked `build/`, where a strict
+editable build keeps its link tree. The output directory (`dist/` or
+`--dist-dir`) is taken as given, as are inputs an option names explicitly,
+such as `bdist_rpm --icon`.
+`pyproject.toml` also declares that the package ships no package data. Nothing
+is deleted for you; remove the leftovers before installing:
+`git clean -fdX -- build src/universal_law_query.egg-info`.
+`tests/test_install_provenance.py` installs temporary copies of the checkout,
+clean and deliberately contaminated, and checks that the installed files are
+exactly the tracked package files. A fresh checkout, as in CI, has neither
+directory. An untracked `.py` module placed directly in `src/universal_law_query/`
+is source, not a leftover, and is installed like any other module; other
+untracked files there are not installed, because the package declares no
+package data, except the typing files setuptools always includes (`py.typed`,
+`*.pyi`). The build rewrites every file it produces and then compares each
+module's bytes with its source, so a file already sitting at a path this build
+writes (a module from another commit, or bytecode under `--compile`) is
+replaced, never shipped; `setup.py bdist_wheel --skip-build` compares instead
+of rebuilding and refuses differing bytes. A refusal in a custom `--build-lib`
+directory names that directory, since the `git clean` remedy reaches only the
+checkout's `build/`. Editable
+installs (`pip install -e`) run from `src/` and are unaffected. The custom
+source archive below does not carry `setup.py`; it has no leftovers of its own,
+and installation from it is not one of its offline checks.
 
 The canonical implementation lives in `src/universal_law_query/`. Historical root commands — `research_query.py`, `catalog_entry_helper.py`, and `verify_portable_stubs.py` — remain thin compatibility wrappers so existing `python -B -S` workflows continue to work.
 
@@ -222,4 +293,4 @@ Standard setuptools source distributions are a separate producer: this custom
 allowlist does not define their membership or establish an offline-install or
 installed-console result.
 
-Cross-repository integration controls remain in `trial`. The curated public artifact routing authority remains `meta-framework/registry.json`.
+The archived [`trial`](https://github.com/d6g8k5htny-coder/trial) repository retains historical cross-repository engineering tests. For current coordination and integration, follow [main's agent entry](https://github.com/d6g8k5htny-coder/main/blob/main/AGENTS.md) and [current workflow](https://github.com/d6g8k5htny-coder/main/blob/main/governance/OP-WORKFLOW-20260930.md). The curated public artifact routing authority remains `meta-framework/registry.json`.

@@ -1,0 +1,69 @@
+{
+ "note": "Inputs for tools/hypergraph. Paths are relative to this repo's root. Repos whose checkout is absent are skipped with a message. Organization only: credit 0, OBL OPEN. Companion copy in query-: this repo is checkout '.', others are optional read-only checkouts under external/.",
+ "home": "main",
+ "default_repos": [
+  "query-"
+ ],
+ "repos": {
+  "main": {
+   "github": "d6g8k5htny-coder/main",
+   "root_dirs": [".github", "architecture", "audits", "data", "docs", "experiments", "formal", "governance", "history", "incoming", "interface", "records", "reviews", "tests", "tools"],
+   "checkout": "external/main",
+   "ledger": "external/main/data/hypergraph/math_coverage_ledger_20261023.md",
+   "graph": "external/main/docs/site/dependency-source/GRAPH.json",
+   "report": "external/main/data/hypergraph/graph_binding_report_20261023.json"
+  },
+  "Math-": {
+   "github": "d6g8k5htny-coder/Math-",
+   "root_dirs": [".github", "certificates", "claims", "coefficients", "companions", "docs", "formal", "frontiers", "imports", "incoming", "repairs", "reviews", "specifications", "tests", "tools"],
+   "checkout": "external/Math-",
+   "unit_depth": 2,
+   "artifacts_order": "first matching role wins: specific formal/impl globs precede the reviews/* catch-all",
+   "artifacts": {
+    "formal": [
+     "*.lean"
+    ],
+    "impl": [
+     "*.py"
+    ],
+    "review": [
+     "*REVIEW*.md",
+     "reviews/*"
+    ],
+    "source": [
+     "*PROOF*.md",
+     "*LEMMA*.md",
+     "*lemma*.md",
+     "*.tex",
+     "PROOF_INDEX.md"
+    ]
+   }
+  },
+  "query-": {
+   "github": "d6g8k5htny-coder/query-",
+   "root_dirs": [".github", "docs", "portable", "scripts", "src", "tests"],
+   "checkout": ".",
+   "unit_depth": 1,
+   "artifacts": {
+    "test": [
+     "tests/*.py",
+     "test_*.py"
+    ],
+    "spec": [
+     "portable/*.json",
+     "portable/history/*.json"
+    ],
+    "source": [
+     "portable/*.md",
+     "docs/*.md"
+    ],
+    "impl": [
+     "src/*.py",
+     "src/*/*.py",
+     "scripts/*.py",
+     "*.py"
+    ]
+   }
+  }
+ }
+}
